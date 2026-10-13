@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dutch parsers for online book reviews: a gold-free comparison</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb;
+  --page: #f9f9f7;
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --link: #2a78d6;
+  --border: rgba(11,11,11,0.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface: #1a1a19;
+    --page: #0d0d0d;
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --link: #3987e5;
+    --border: rgba(255,255,255,0.10);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19;
+  --page: #0d0d0d;
+  --ink-primary: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --link: #3987e5;
+  --border: rgba(255,255,255,0.10);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.6;
+}
+.wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+h1, h2, h3 { line-height: 1.25; }
+h1 { font-size: 1.7rem; margin-bottom: 0.3em; }
+h2 {
+  font-size: 1.25rem;
+  margin-top: 2.4em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--grid);
+}
+h3 { font-size: 1.05rem; }
+p, li { color: var(--ink-primary); }
+em { color: var(--ink-secondary); }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  font-size: 0.9em;
+}
+hr { border: none; border-top: 1px solid var(--grid); margin: 2.5em 0; }
+figure { margin: 1.5em 0; }
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2em 0;
+  font-size: 0.92rem;
+}
+th, td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--grid);
+}
+th { color: var(--ink-secondary); font-weight: 600; }
+tbody tr:hover { background: var(--surface); }
+#TOC {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 24px;
+  margin: 1.5em 0 2.5em;
+}
+#TOC ul { margin: 0.3em 0; padding-left: 1.3em; }
+#TOC > ul { list-style: none; padding-left: 0; }
+#TOC a { color: var(--ink-secondary); }
+.theme-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: var(--ink-secondary);
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle">Switch to dark</button>
+<div class="wrap">
+
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a
+href="#dutch-parsers-for-online-book-reviews-a-gold-free-comparison"
+id="toc-dutch-parsers-for-online-book-reviews-a-gold-free-comparison">Dutch
+parsers for online book reviews: a gold-free comparison</a>
+<ul>
+<li><a href="#how-to-read-these-numbers"
+id="toc-how-to-read-these-numbers">1. How to read these numbers</a></li>
+<li><a href="#tokenisation" id="toc-tokenisation">2.
+Tokenisation</a></li>
+<li><a href="#lemmatisation" id="toc-lemmatisation">3.
+Lemmatisation</a></li>
+<li><a href="#compounds-and-morphology"
+id="toc-compounds-and-morphology">4. Compounds and morphology</a></li>
+<li><a href="#sentence-splitting" id="toc-sentence-splitting">5.
+Sentence splitting</a></li>
+<li><a href="#retraining-spacys-lemmatizer-on-silver"
+id="toc-retraining-spacys-lemmatizer-on-silver">6. Retraining spaCy’s
+lemmatizer on silver</a></li>
+<li><a href="#throughput" id="toc-throughput">7. Throughput</a></li>
+<li><a href="#recommendation" id="toc-recommendation">8.
+Recommendation</a></li>
+<li><a href="#outputs" id="toc-outputs">Outputs</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1
+id="dutch-parsers-for-online-book-reviews-a-gold-free-comparison">Dutch
+parsers for online book reviews: a gold-free comparison</h1>
+<p><strong>Corpus.</strong> <code>data/review_sentences/0</code> — 670
+reviews, 7,125 sentences, ~103k words of user-generated Dutch, one
+sentence per line as shipped.</p>
+<p><strong>Systems.</strong> Alpino (official RUG build
+<code>git20260629</code>, run in Docker), Frog (via
+<code>python-frog</code>, config <code>~/.config/frog/nld</code>),
+Stanza 1.14 (<code>nl</code>, UD Dutch Alpino + LassySmall models),
+spaCy 3.8 (<code>nl_core_news_lg</code>).</p>
+<p><strong>Method.</strong> There is no gold standard for this corpus,
+so nothing below is an accuracy figure. Everything is
+<em>agreement</em>, structured so that agreement is informative, plus
+heuristics targeting one specific failure: a lemmatiser emitting a
+string that is not a Dutch word. Method and code: <a
+href="../src/parsers/README.md"><code>src/parsers/README.md</code></a>.</p>
+<hr />
+<h2 id="how-to-read-these-numbers">1. How to read these numbers</h2>
+<p>Three biases, all knowable in direction, apply throughout.</p>
+<p><strong>Agreement is not accuracy, and two of the four systems are
+not independent.</strong> Stanza and spaCy are both trained on UD Dutch
+(Alpino + LassySmall), so they share training data and therefore share
+errors. Stanza and Alpino share provenance, because UD Dutch Alpino is
+derived from Alpino’s own treebank. <strong>Frog is the only system here
+independent of the other three</strong>, which makes Frog-vs-anything
+the most informative agreement number in this report, and makes a
+majority vote over the four systems unusable as a silver standard.</p>
+<p><strong>Lemma conventions differ, and the difference is
+large.</strong> Stanza follows UD Dutch Alpino and marks separable
+particles and compound seams with underscores (<code>op_steken</code>,
+<code>spel_fout</code>, <code>16_jarig</code>). Alpino goes further: its
+lemmas are <em>compound-decomposed citation forms</em>
+(<code>bestsellerslijsten → bestseller_lijst</code>,
+<code>paardenfans → paard_fan</code>,
+<code>zwart-witfoto's → zwart_wit_foto</code>), it normalises spelling
+(<code>sexmisbruik → seks_misbruik</code>), it emits
+<code>vanalles → van alles</code> with a space, and it pulls particles
+in from context (<code>gaat → tegemoet_gaan</code>). Frog and spaCy
+write plain citation forms. Scoring these against each other measures
+the annotation guideline, not the lemmatiser, so every figure below is
+reported twice: exact, and modulo convention (underscores and hyphens
+stripped, casefolded). This matters: it moved Stanza’s unattested-lemma
+rate from 3.11% to 0.93% in the three-way run.</p>
+<p><strong>The <code>unattested</code> heuristic over-flags.</strong> A
+lemma counts as unattested when its string occurs nowhere else in the
+corpus — neither as a surface form nor as any other tool’s lemma
+anywhere. In ~100k tokens many correct citation forms are simply absent.
+It is a triage signal for manual inspection, not a verdict.</p>
+<p><strong>The join key.</strong> Every runner emits character offsets
+into the original review line. Two systems “agree on a token” when they
+emit the same span, and lemma agreement is only ever computed on spans
+all four systems segment identically (114,528 of ~115k tokens). Without
+that restriction a tokenisation difference shows up silently as a lemma
+difference.</p>
+<hr />
+<h2 id="tokenisation">2. Tokenisation</h2>
+<table>
+<thead>
+<tr>
+<th>tool</th>
+<th style="text-align: right;">tokens</th>
+<th style="text-align: right;">tokens/line</th>
+<th style="text-align: right;">sentences</th>
+<th style="text-align: right;">lines re-split</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>alpino</td>
+<td style="text-align: right;">115,151</td>
+<td style="text-align: right;">16.16</td>
+<td style="text-align: right;">7,124</td>
+<td style="text-align: right;">0.00% *</td>
+</tr>
+<tr>
+<td>frog</td>
+<td style="text-align: right;">115,361</td>
+<td style="text-align: right;">16.19</td>
+<td style="text-align: right;">7,181</td>
+<td style="text-align: right;">0.70%</td>
+</tr>
+<tr>
+<td>stanza</td>
+<td style="text-align: right;">115,153</td>
+<td style="text-align: right;">16.16</td>
+<td style="text-align: right;">7,370</td>
+<td style="text-align: right;">3.26%</td>
+</tr>
+<tr>
+<td>spacy_lg</td>
+<td style="text-align: right;">115,290</td>
+<td style="text-align: right;">16.18</td>
+<td style="text-align: right;">7,528</td>
+<td style="text-align: right;">4.60%</td>
+</tr>
+</tbody>
+</table>
+<p>* by construction — Alpino was run with
+<code>tokenize_no_breaks.sh</code>, which cannot split. See §5 for the
+sentence-splitting comparison that does exercise it.</p>
+<p>Pairwise:</p>
+<table>
+<thead>
+<tr>
+<th>pair</th>
+<th style="text-align: right;">identical lines</th>
+<th style="text-align: right;">token F1</th>
+<th style="text-align: right;">Jaccard</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>alpino vs frog</td>
+<td style="text-align: right;">97.35%</td>
+<td style="text-align: right;">0.9969</td>
+<td style="text-align: right;">0.9938</td>
+</tr>
+<tr>
+<td>alpino vs spacy_lg</td>
+<td style="text-align: right;">97.32%</td>
+<td style="text-align: right;">0.9971</td>
+<td style="text-align: right;">0.9943</td>
+</tr>
+<tr>
+<td>alpino vs stanza</td>
+<td style="text-align: right;">96.87%</td>
+<td style="text-align: right;">0.9967</td>
+<td style="text-align: right;">0.9934</td>
+</tr>
+<tr>
+<td>spacy_lg vs stanza</td>
+<td style="text-align: right;">96.67%</td>
+<td style="text-align: right;">0.9966</td>
+<td style="text-align: right;">0.9933</td>
+</tr>
+<tr>
+<td>frog vs spacy_lg</td>
+<td style="text-align: right;">96.51%</td>
+<td style="text-align: right;">0.9961</td>
+<td style="text-align: right;">0.9923</td>
+</tr>
+<tr>
+<td>frog vs stanza</td>
+<td style="text-align: right;">95.66%</td>
+<td style="text-align: right;">0.9952</td>
+<td style="text-align: right;">0.9904</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Tokenisation is not where these systems differ.</strong>
+Token F1 is 0.995–0.997 across every pair, and the residual
+disagreements are almost entirely punctuation: <code>/</code>,
+apostrophes, <code>.</code>/<code>..</code>/<code>...</code> runs, and
+<code>!</code>-runs. Alpino is the most <em>central</em> tokeniser — it
+has the highest agreement with every other system despite none of them
+being trained to match it.</p>
+<p>Practical consequence: if you only need tokens, this choice barely
+matters. Pick on speed.</p>
+<hr />
+<h2 id="lemmatisation">3. Lemmatisation</h2>
+<p>91.94% of comparable tokens get the same lemma from all four systems;
+94.72% modulo convention. Pairwise, exact / modulo convention:</p>
+<table>
+<thead>
+<tr>
+<th>pair</th>
+<th style="text-align: right;">exact</th>
+<th style="text-align: right;">modulo conv.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>alpino vs stanza</td>
+<td style="text-align: right;">96.43%</td>
+<td style="text-align: right;">97.50%</td>
+</tr>
+<tr>
+<td>frog vs spacy_lg</td>
+<td style="text-align: right;">95.87%</td>
+<td style="text-align: right;">96.68%</td>
+</tr>
+<tr>
+<td>spacy_lg vs stanza</td>
+<td style="text-align: right;">95.09%</td>
+<td style="text-align: right;">97.12%</td>
+</tr>
+<tr>
+<td>frog vs stanza</td>
+<td style="text-align: right;">95.05%</td>
+<td style="text-align: right;">97.23%</td>
+</tr>
+<tr>
+<td>alpino vs spacy_lg</td>
+<td style="text-align: right;">94.21%</td>
+<td style="text-align: right;">96.82%</td>
+</tr>
+<tr>
+<td>alpino vs frog</td>
+<td style="text-align: right;">94.20%</td>
+<td style="text-align: right;">96.93%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-overall-number-hides-everything-interesting">The overall
+number hides everything interesting</h3>
+<p>Agreement stratified by corpus frequency of the surface form:</p>
+<table>
+<colgroup>
+<col style="width: 9%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>bucket</th>
+<th style="text-align: right;">tokens</th>
+<th style="text-align: right;">alpino/frog</th>
+<th style="text-align: right;">alpino/spacy</th>
+<th style="text-align: right;">alpino/stanza</th>
+<th style="text-align: right;">frog/spacy</th>
+<th style="text-align: right;">frog/stanza</th>
+<th style="text-align: right;">spacy/stanza</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>100+</td>
+<td style="text-align: right;">69,147</td>
+<td style="text-align: right;">99.18%</td>
+<td style="text-align: right;">99.36%</td>
+<td style="text-align: right;">99.32%</td>
+<td style="text-align: right;">99.49%</td>
+<td style="text-align: right;">99.47%</td>
+<td style="text-align: right;">99.59%</td>
+</tr>
+<tr>
+<td>26–100</td>
+<td style="text-align: right;">13,795</td>
+<td style="text-align: right;">94.28%</td>
+<td style="text-align: right;">95.19%</td>
+<td style="text-align: right;">96.88%</td>
+<td style="text-align: right;">94.97%</td>
+<td style="text-align: right;">96.25%</td>
+<td style="text-align: right;">96.89%</td>
+</tr>
+<tr>
+<td>6–25</td>
+<td style="text-align: right;">13,779</td>
+<td style="text-align: right;">90.11%</td>
+<td style="text-align: right;">91.12%</td>
+<td style="text-align: right;">94.61%</td>
+<td style="text-align: right;">91.96%</td>
+<td style="text-align: right;">91.44%</td>
+<td style="text-align: right;">92.72%</td>
+</tr>
+<tr>
+<td>2–5</td>
+<td style="text-align: right;">10,532</td>
+<td style="text-align: right;">83.05%</td>
+<td style="text-align: right;">82.04%</td>
+<td style="text-align: right;">89.95%</td>
+<td style="text-align: right;">88.02%</td>
+<td style="text-align: right;">84.13%</td>
+<td style="text-align: right;">83.44%</td>
+</tr>
+<tr>
+<td><strong>1 (hapax)</strong></td>
+<td style="text-align: right;"><strong>7,275</strong></td>
+<td style="text-align: right;"><strong>70.64%</strong></td>
+<td style="text-align: right;"><strong>66.98%</strong></td>
+<td style="text-align: right;"><strong>80.81%</strong></td>
+<td style="text-align: right;"><strong>81.98%</strong></td>
+<td style="text-align: right;"><strong>73.40%</strong></td>
+<td style="text-align: right;"><strong>70.31%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Agreement runs at ~99.3% on frequent forms and collapses to 67–82% on
+hapaxes. Since 7,275 of 114,528 tokens are hapaxes and review vocabulary
+is overwhelmingly rare — compounds, loanwords, names, spelling variants
+— a single headline agreement figure describes the part of the corpus
+nobody worries about.</p>
+<p>Note that alpino/frog hapax agreement (70.64%) reads <em>worse</em>
+than frog/spacy (81.98%) largely because of Alpino’s decompounding:
+<code>canon()</code> strips underscores but cannot undo dropped linking
+morphemes (<code>paard_fan</code> vs <code>paardenfan</code>). That row
+understates real agreement.</p>
+<h3 id="per-tool-dissent-and-suspicion-flags">Per-tool dissent and
+suspicion flags</h3>
+<p>Over 102,112 non-punctuation comparable tokens:</p>
+<table>
+<thead>
+<tr>
+<th>tool</th>
+<th style="text-align: right;">singleton</th>
+<th style="text-align: right;">uncorroborated</th>
+<th style="text-align: right;">unattested</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>frog</td>
+<td style="text-align: right;">1.56%</td>
+<td style="text-align: right;">1.56%</td>
+<td style="text-align: right;"><strong>0.348%</strong></td>
+</tr>
+<tr>
+<td>alpino</td>
+<td style="text-align: right;">1.69%</td>
+<td style="text-align: right;">1.40%</td>
+<td style="text-align: right;">0.539%</td>
+</tr>
+<tr>
+<td>stanza</td>
+<td style="text-align: right;">0.80%</td>
+<td style="text-align: right;">1.07%</td>
+<td style="text-align: right;">0.626%</td>
+</tr>
+<tr>
+<td>spacy_lg</td>
+<td style="text-align: right;">1.28%</td>
+<td style="text-align: right;">1.85%</td>
+<td style="text-align: right;"><strong>0.962%</strong></td>
+</tr>
+</tbody>
+</table>
+<p><em>singleton</em> = the tool dissents while all others agree with
+each other; <em>uncorroborated</em> = no other tool proposes this lemma
+for this token; <em>unattested</em> = the lemma string occurs nowhere
+else in the corpus.</p>
+<p><strong>spaCy’s unattested rate is ~2.8× Frog’s, and its flagged
+cases are genuine non-words</strong>: <code>lotgenoat</code>,
+<code>familienam</code>, <code>dierenverhaol</code>,
+<code>kauwgomplaa</code>, <code>werkwijz</code>,
+<code>opsteekken</code>. Frog’s flagged cases are mostly
+<em>correct</em> citation forms the small corpus happens not to contain
+(<code>uitdenken</code>, <code>aftuigen</code>, <code>gieten</code>).
+That asymmetry is the finding: the same heuristic flags real errors for
+one system and false alarms for another.</p>
+<p>Stanza’s low singleton rate (0.80%) should not be read as accuracy.
+Stanza sits between Alpino (shared provenance) and spaCy (shared
+training data), so it rarely dissents alone by construction.</p>
+<p>Worth noting: spaCy’s Dutch lemmatizer is <strong>not</strong> a
+lookup table. Both <code>nl_core_news_lg</code> and
+<code>nl_core_news_trf</code> run an <code>EditTreeLemmatizer</code> — a
+trained component. Its OOV failures are learned suffix-edit rules
+misfiring on unseen words, which is a data problem, and therefore
+fixable (§6).</p>
+<hr />
+<h2 id="compounds-and-morphology">4. Compounds and morphology</h2>
+<p>Frog’s MBMA is the only morpheme segmentation available. Separating
+<em>compounding</em> from <em>inflection and derivation</em> properly
+needs Frog’s <code>deepmorph</code> model, which this installation lacks
+(<code>deepmorph=True</code> fails to initialise), so the analysis
+approximates it with an affix stoplist. Treat the split as
+heuristic.</p>
+<p>Of 102,607 non-punctuation tokens with an analysis, 25.7% are
+multi-segment:</p>
+<table>
+<thead>
+<tr>
+<th>segments</th>
+<th style="text-align: right;">tokens</th>
+<th style="text-align: right;">share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td style="text-align: right;">76,210</td>
+<td style="text-align: right;">74.27%</td>
+</tr>
+<tr>
+<td>2</td>
+<td style="text-align: right;">18,712</td>
+<td style="text-align: right;">18.24%</td>
+</tr>
+<tr>
+<td>3</td>
+<td style="text-align: right;">6,266</td>
+<td style="text-align: right;">6.11%</td>
+</tr>
+<tr>
+<td>4</td>
+<td style="text-align: right;">1,219</td>
+<td style="text-align: right;">1.19%</td>
+</tr>
+<tr>
+<td>5+</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">0.19%</td>
+</tr>
+</tbody>
+</table>
+<p>By word class, multi-segment rate: VERB 63.9%, ADJ 57.5%, NOUN 46.1%,
+ADV 13.4%, NUM 21.8%, and 0% for closed classes.</p>
+<p><strong>Compound claims</strong> (≥2 free-standing members, i.e. not
+just inflection): 4,865 tokens, 4.7% of analysed tokens. Of those, 2.4%
+have under half their members attested anywhere in the corpus — and they
+are overwhelmingly loanwords:</p>
+<pre><code>podcast       [pod][cast]
+Metamorphosen [metamorp][hose][n]
+Endlösung     [endlös][ung]
+Ausweis       [aus][weis]
+Stromblazers  [strom][blaas][er][s]
+kauwgomplaatje[kauw][gomplaat][je]</code></pre>
+<p>This is MBMA’s known weakness — it is trained on Dutch and forces
+Dutch morphology onto English and German material, which online book
+reviews are full of.</p>
+<h3 id="cross-check-frog-mbma-vs-underscore-lemmas">Cross-check: Frog
+MBMA vs underscore lemmas</h3>
+<p>Alpino and Stanza both encode compound seams as underscores in the
+lemma, giving two independent opinions on where the seams are. Because
+Alpino normalises members to citation form and drops linking morphemes,
+the check counts <em>members</em> rather than requiring identical
+strings.</p>
+<table>
+<thead>
+<tr>
+<th>comparison</th>
+<th style="text-align: right;">both split</th>
+<th style="text-align: right;">same member count</th>
+<th style="text-align: right;">only Frog</th>
+<th style="text-align: right;">only other</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frog vs Alpino</td>
+<td style="text-align: right;">2,088</td>
+<td style="text-align: right;"><strong>94.6%</strong></td>
+<td style="text-align: right;">2,763</td>
+<td style="text-align: right;">1,898</td>
+</tr>
+<tr>
+<td>Frog vs Stanza</td>
+<td style="text-align: right;">1,650</td>
+<td style="text-align: right;">93.5%</td>
+<td style="text-align: right;">3,206</td>
+<td style="text-align: right;">1,118</td>
+</tr>
+</tbody>
+</table>
+<p>Two systems built on completely different principles — memory-based
+classification versus a hand-written lexicalised grammar — agree on the
+number of compound members 94.6% of the time when both decide to split.
+The real disagreement is about <em>whether</em> to split at all, and
+Frog splits considerably more often.</p>
+<p><strong>If you want compound splitting, Alpino gives it to you in the
+lemma field for free</strong>, and without MBMA’s loanword failure mode,
+since it is lexicon-driven. Frog’s MBMA remains the richer analysis
+(full morpheme sequence including affixes), but it needs the loanword
+cases filtered.</p>
+<hr />
+<h2 id="sentence-splitting">5. Sentence splitting</h2>
+<p>Document mode (<code>--doc-mode</code>) joins each review’s lines
+back into running text with single spaces and feeds the whole review to
+each system, so every splitter has to find the boundaries again. Alpino
+switches from <code>tokenize_no_breaks.sh</code> to
+<code>tokenize.sh</code> for this, with a sentinel line between
+documents to preserve the mapping from its XML output back to
+reviews.</p>
+<h3 id="the-reference-is-not-neutral">The reference is not neutral</h3>
+<p>The corpus’s existing line segmentation was produced by
+<strong>Trankit</strong>. Trankit does not reuse Stanza’s splitter — it
+is a separate XLM-R-based joint tokeniser/splitter — but it is trained
+on the same UD Dutch treebanks (Alpino + LassySmall) as Stanza’s
+splitter, and spaCy’s boundaries come from its UD-trained parser. Three
+of the systems scored here therefore share segmentation
+<em>conventions</em> with the reference, and their agreement with it is
+substantially circular.</p>
+<table>
+<thead>
+<tr>
+<th>camp</th>
+<th>systems</th>
+<th>relation to the reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UD-trained</td>
+<td>stanza, spacy_lg</td>
+<td>same treebank conventions</td>
+</tr>
+<tr>
+<td>rule-based</td>
+<td>frog, alpino</td>
+<td>ucto / <code>tokenize.sh</code>; independent</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Highest F1 against the reference does not mean best
+splitter.</strong> It partly means “trained on the same data as whatever
+made the reference”.</p>
+<h3 id="agreement-with-the-existing-segmentation">Agreement with the
+existing segmentation</h3>
+<p>The <code>n-</code> columns are a convention-neutral rescoring that
+drops every boundary following a colon or semicolon (370 of them) from
+<strong>both</strong> sides.</p>
+<table>
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr>
+<th>tool</th>
+<th>camp</th>
+<th style="text-align: right;">sents</th>
+<th style="text-align: right;">ratio</th>
+<th style="text-align: right;">prec</th>
+<th style="text-align: right;">rec</th>
+<th style="text-align: right;">F1</th>
+<th style="text-align: right;">n-prec</th>
+<th style="text-align: right;">n-rec</th>
+<th style="text-align: right;">n-F1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>alpino</td>
+<td>rule-based</td>
+<td style="text-align: right;">6,477</td>
+<td style="text-align: right;">0.909</td>
+<td style="text-align: right;"><strong>99.10</strong></td>
+<td style="text-align: right;">89.16</td>
+<td style="text-align: right;">93.87</td>
+<td style="text-align: right;"><strong>99.10</strong></td>
+<td style="text-align: right;">94.58</td>
+<td style="text-align: right;"><strong>96.79</strong></td>
+</tr>
+<tr>
+<td>frog</td>
+<td>rule-based</td>
+<td style="text-align: right;">6,533</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">97.83</td>
+<td style="text-align: right;">88.86</td>
+<td style="text-align: right;">93.13</td>
+<td style="text-align: right;">97.83</td>
+<td style="text-align: right;">94.26</td>
+<td style="text-align: right;">96.02</td>
+</tr>
+<tr>
+<td>spacy_lg</td>
+<td>UD-trained</td>
+<td style="text-align: right;">7,199</td>
+<td style="text-align: right;">1.010</td>
+<td style="text-align: right;">94.82</td>
+<td style="text-align: right;">95.91</td>
+<td style="text-align: right;">95.36</td>
+<td style="text-align: right;">94.63</td>
+<td style="text-align: right;">97.96</td>
+<td style="text-align: right;">96.27</td>
+</tr>
+<tr>
+<td>stanza</td>
+<td>UD-trained</td>
+<td style="text-align: right;">7,116</td>
+<td style="text-align: right;">0.999</td>
+<td style="text-align: right;">96.42</td>
+<td style="text-align: right;">96.28</td>
+<td style="text-align: right;">96.35</td>
+<td style="text-align: right;">96.25</td>
+<td style="text-align: right;">97.44</td>
+<td style="text-align: right;"><strong>96.84</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>The raw ranking is almost entirely a guideline
+artefact.</strong> Remove the colon/semicolon boundaries and all four
+systems sit within 0.8 points (96.02–96.84); Alpino moves from last to a
+tie with Stanza, and has the highest boundary precision of any system
+either way — when Alpino posits a boundary, the reference agrees 99.1%
+of the time.</p>
+<p>Tool to tool:</p>
+<table>
+<thead>
+<tr>
+<th>pair</th>
+<th style="text-align: right;">boundary F1</th>
+<th style="text-align: right;">docs identical</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>alpino vs frog</strong></td>
+<td style="text-align: right;"><strong>97.60</strong></td>
+<td style="text-align: right;"><strong>82.69%</strong></td>
+</tr>
+<tr>
+<td>spacy_lg vs stanza</td>
+<td style="text-align: right;">95.06</td>
+<td style="text-align: right;">62.84%</td>
+</tr>
+<tr>
+<td>alpino vs stanza</td>
+<td style="text-align: right;">93.85</td>
+<td style="text-align: right;">61.64%</td>
+</tr>
+<tr>
+<td>frog vs spacy_lg</td>
+<td style="text-align: right;">93.54</td>
+<td style="text-align: right;">61.19%</td>
+</tr>
+<tr>
+<td>alpino vs spacy_lg</td>
+<td style="text-align: right;">93.45</td>
+<td style="text-align: right;">60.15%</td>
+</tr>
+<tr>
+<td>frog vs stanza</td>
+<td style="text-align: right;">93.35</td>
+<td style="text-align: right;">62.99%</td>
+</tr>
+</tbody>
+</table>
+<p>Two rule-based splitters that share neither code nor training data
+agree with each other far more than either agrees with the UD-trained
+pair. That is the strongest evidence here that the two camps are real
+and not an artefact of how the table is grouped.</p>
+<p>Note also that the spread between tools (93–97.6) is far wider than
+for tokenisation (token F1 99.5–99.7). <strong>Sentence splitting, not
+tokenisation, is where these systems actually diverge.</strong></p>
+<p>Frog’s profile is high precision (97.83) and low recall (88.86) — it
+under-splits, producing 8% fewer sentences than the reference.
+Inspecting <code>sentences_disagreements.csv</code>, its misses are
+concentrated on:</p>
+<ul>
+<li><strong>Colons and semicolons.</strong> The reference splits after
+<code>:</code> and <code>;</code>; neither rule-based system does. Of
+624 boundaries the reference makes that neither Frog nor Alpino makes,
+285 follow a colon and 85 a semicolon — 370, i.e. <em>every</em>
+colon/semicolon boundary in the reference is rejected by both. Against
+that, only 36 boundaries go the other way. This is one guideline
+decision, not a capability gap.</li>
+<li><strong>Closing quotes.</strong> Frog puts the boundary
+<em>before</em> a closing quote
+(<code>Hoe ik het kon. || " Met dit...</code> rather than
+<code>kon." || Met dit...</code>). This one is a genuine Frog
+error.</li>
+<li><strong>URLs.</strong> Frog splits inside them
+(<code>...held-zonder-vaderland. || html</code>).</li>
+</ul>
+<h3 id="alignment-bug-found-here">Alignment bug found here</h3>
+<p>Document mode initially reported 341 unalignable tokens, all in one
+review containing a line consisting of a lone full stop.
+<code>char_align</code> had been searching unboundedly forward, so a
+single rewritten token matched a much later occurrence of itself and
+dragged the cursor past everything in between. The search is now bounded
+with a resync escape hatch; failures dropped from 341 to <strong>1 in
+115,142</strong>. Worth knowing because it would have scaled badly:
+~0.15% of documents on a full-corpus run.</p>
+<h3 id="what-to-actually-trust">What to actually trust</h3>
+<p><code>sentences_independent_vs_reference.csv</code> isolates the
+boundaries where both rule-based splitters agree with each other and
+disagree with the reference. Those decisions are made by machinery that
+owes the reference nothing, so they are the cases worth hand-checking
+first — and the natural seed for a gold segmentation set, which is the
+only thing that would turn any of this into accuracy.</p>
+<hr />
+<h2 id="retraining-spacys-lemmatizer-on-silver">6. Retraining spaCy’s
+lemmatizer on silver</h2>
+<p><code>nl_core_news_lg</code> lemmatises with an
+<code>EditTreeLemmatizer</code> — a trained component, not a lookup
+table — so its OOV failures are a data problem and in principle fixable
+by retraining on in-domain silver. <code>build_lemma_trainset.py</code>
+builds the data (98,121 tokens train / 17,108 dev from Alpino silver,
+99.7% of spaCy tokens aligned, <strong>split by review</strong> so no
+sentences leak between splits) and a config that retrains <em>only</em>
+the lemmatizer on top of frozen sourced components.</p>
+<p>Training converged quickly and plateaued. The result, however, is a
+negative one worth stating plainly.</p>
+<h3 id="read-the-baseline-carefully">Read the baseline carefully</h3>
+<p><code>spacy train</code> reports <code>LEMMA_ACC = 73.92</code> at
+step 0. <strong>That is not stock spaCy.</strong> The config declares
+<code>trainable_lemmatizer</code> with <code>factory</code>, so a fresh
+component is initialised; at step 0 it is untrained and
+<code>backoff = "orth"</code> makes it return the surface form
+unchanged. 73.92% is the copy-the-form baseline. Stock
+<code>nl_core_news_lg</code> scores 93.17% against Alpino silver on
+held-out reviews.</p>
+<h3 id="held-out-vs-training-performance">Held-out vs training
+performance</h3>
+<p>Agreement with Alpino silver, punctuation excluded, dev = reviews
+never seen in training:</p>
+<table>
+<thead>
+<tr>
+<th>split</th>
+<th>bucket</th>
+<th style="text-align: right;">spacy_lg</th>
+<th style="text-align: right;">spacy_retrained</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>dev</strong></td>
+<td>all</td>
+<td style="text-align: right;">93.17%</td>
+<td style="text-align: right;"><strong>93.97%</strong></td>
+</tr>
+<tr>
+<td><strong>dev</strong></td>
+<td>hapax</td>
+<td style="text-align: right;">66.43%</td>
+<td style="text-align: right;"><strong>65.04%</strong></td>
+</tr>
+<tr>
+<td><strong>dev</strong></td>
+<td>rare (2–5)</td>
+<td style="text-align: right;">82.74%</td>
+<td style="text-align: right;">84.10%</td>
+</tr>
+<tr>
+<td><strong>dev</strong></td>
+<td>common (6+)</td>
+<td style="text-align: right;">96.99%</td>
+<td style="text-align: right;">97.91%</td>
+</tr>
+<tr>
+<td>train</td>
+<td>all</td>
+<td style="text-align: right;">93.53%</td>
+<td style="text-align: right;">96.68%</td>
+</tr>
+<tr>
+<td>train</td>
+<td>hapax</td>
+<td style="text-align: right;">67.09%</td>
+<td style="text-align: right;">77.48%</td>
+</tr>
+<tr>
+<td>train</td>
+<td>rare (2–5)</td>
+<td style="text-align: right;">81.85%</td>
+<td style="text-align: right;">91.95%</td>
+</tr>
+<tr>
+<td>train</td>
+<td>common (6+)</td>
+<td style="text-align: right;">97.27%</td>
+<td style="text-align: right;">98.93%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>On reviews it trained on, the model gains 10.4 points on
+hapaxes. On reviews it did not, it loses 1.4.</strong> The overall
+held-out gain is +0.80 points. That gap is memorisation, not
+generalisation: 98k tokens teaches the model the specific rare words in
+the training reviews, and rare words by definition do not recur.</p>
+<p>244 held-out tokens are fixed and 123 regressed. Inspecting them
+(<code>retrained_lemma_fixed.csv</code>,
+<code>retrained_lemma_regressed.csv</code>):</p>
+<ul>
+<li>Most “fixes” are the model adopting Alpino’s <em>convention</em>
+rather than repairing an error — <code>spelen → af_spelen</code>,
+<code>uitleggen → uit_leggen</code>,
+<code>verhaallijn → verhaal_lijn</code>. Valuable if you want
+Alpino-style lemmas, but it is not error correction.</li>
+<li>Genuine hallucination repairs do occur:
+<code>dialoag → dialoog</code>, <code>Kelly's → Kelly</code>.</li>
+<li>The regressions are <code>backoff = "orth"</code> firing when no
+learned edit tree matches, so the model returns the surface form:
+<code>gereden → gereden</code>, <code>schreven → schreven</code>,
+<code>staat → staat</code>.</li>
+</ul>
+<h3 id="the-flag-based-view-is-circular-here">The flag-based view is
+circular here</h3>
+<p>Running <code>compare_lemmas.py</code> with the retrained model
+swapped in shows its unattested rate dropping 0.962% → 0.303%. That
+number should not be trusted: the flags judge a lemma partly by whether
+<em>other</em> tools propose it, and a model trained on Alpino silver
+agrees with Alpino by construction. The tell is that Frog’s unattested
+rate moved from 0.348% to 0.639% in the same run even though Frog did
+not change — the attestation universe shifted under it. Use the held-out
+table above instead; that is what
+<code>eval_retrained_lemmatizer.py</code> exists for.</p>
+<h3 id="how-much-silver-would-actually-be-needed">How much silver would
+actually be needed</h3>
+<p><code>learning_curve.py</code> trains the same configuration at five
+sizes and scores every model on the same held-out reviews, decomposing
+the result into coverage (test tokens whose form was seen in training)
+and generalisation (accuracy on forms never seen):</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: right;">train tokens</th>
+<th style="text-align: right;">coverage</th>
+<th style="text-align: right;">acc_all</th>
+<th style="text-align: right;">acc_seen</th>
+<th style="text-align: right;">acc_unseen</th>
+<th style="text-align: right;">acc_hapax</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">4,300</td>
+<td style="text-align: right;">70.8%</td>
+<td style="text-align: right;">86.59</td>
+<td style="text-align: right;">94.48</td>
+<td style="text-align: right;"><strong>67.48</strong></td>
+<td style="text-align: right;">57.27</td>
+</tr>
+<tr>
+<td style="text-align: right;">11,091</td>
+<td style="text-align: right;">77.8%</td>
+<td style="text-align: right;">90.38</td>
+<td style="text-align: right;">95.98</td>
+<td style="text-align: right;"><strong>70.79</strong></td>
+<td style="text-align: right;">59.44</td>
+</tr>
+<tr>
+<td style="text-align: right;">25,485</td>
+<td style="text-align: right;">83.0%</td>
+<td style="text-align: right;">92.11</td>
+<td style="text-align: right;">96.37</td>
+<td style="text-align: right;"><strong>71.27</strong></td>
+<td style="text-align: right;">62.14</td>
+</tr>
+<tr>
+<td style="text-align: right;">52,075</td>
+<td style="text-align: right;">86.7%</td>
+<td style="text-align: right;">93.34</td>
+<td style="text-align: right;">96.69</td>
+<td style="text-align: right;"><strong>71.44</strong></td>
+<td style="text-align: right;">64.93</td>
+</tr>
+<tr>
+<td style="text-align: right;">97,819</td>
+<td style="text-align: right;">89.3%</td>
+<td style="text-align: right;">93.97</td>
+<td style="text-align: right;">96.73</td>
+<td style="text-align: right;"><strong>70.82</strong></td>
+<td style="text-align: right;">65.01</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>acc_unseen</code> is flat.</strong> A 23× increase in
+training data moves it from 67.5 to 70.8 and the last step is negative.
+The entire headline gain comes from coverage rising 70.8% → 89.3%: the
+model is memorising this corpus’s vocabulary, not learning Dutch
+morphology it can apply to new words.</p>
+<p>Vocabulary growth on this corpus fits Heaps’ law at
+<code>V = 3.33 * N^0.743</code>. That exponent is high — newspaper Dutch
+is nearer 0.6 — because reviews keep minting compounds, spelling
+variants, titles and names. Unseen-token mass therefore falls only as
+<code>N^-0.257</code>: a 100× larger silver corpus cuts it by about 3×.
+Projecting accuracy from the coverage model:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">train tokens</th>
+<th style="text-align: right;">est. coverage</th>
+<th style="text-align: right;">est. accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">97,819</td>
+<td style="text-align: right;">89.3%</td>
+<td style="text-align: right;">93.97%</td>
+</tr>
+<tr>
+<td style="text-align: right;">978,190 (10×)</td>
+<td style="text-align: right;">94.1%</td>
+<td style="text-align: right;">95.20%</td>
+</tr>
+<tr>
+<td style="text-align: right;">9,781,900 (100×)</td>
+<td style="text-align: right;">96.7%</td>
+<td style="text-align: right;">95.88%</td>
+</tr>
+</tbody>
+</table>
+<h3 id="conclusion-do-not-distil">Conclusion: do not distil</h3>
+<p>Stock <code>nl_core_news_lg</code> already scores 93.17% against
+Alpino. Even 10M tokens of silver — 100× what was used here — reaches
+only ~95.9%, so the whole exercise is worth about 2.7 points of Alpino
+fidelity, and none of it on the rare vocabulary that motivated it.</p>
+<p>The break-even does not exist, because the full Alpino run is
+affordable — though less comfortably than first estimated. The
+collection is 6,893,445 sentences over 670,748 reviews, ~106M tokens; at
+the <strong>measured</strong> 0.319 sentences/s per core it is
+<strong>4.2 days on two 30-core VMs</strong> (§7), not the 1.5–3 days
+extrapolated from emulated timings. Reaching ~95.9% by distillation
+would still require Alpino-parsing 10M tokens — ~10% of the collection,
+around 10 hours of the same compute — to save four days while giving up
+four points of accuracy and carrying a second pipeline.</p>
+<p>Parse everything with Alpino. Keep the distillation path only for a
+future case where new reviews must be annotated interactively or at high
+volume, where a ~96% model at 9,500 tokens/s is a reasonable fast pass.
+The scripts remain so the decision can be re-derived with different
+numbers:</p>
+<pre><code>make lemma-train SILVER=alpino &amp;&amp; make lemma-eval
+python src/parsers/learning_curve.py --silver alpino</code></pre>
+<hr />
+<h2 id="throughput">7. Throughput</h2>
+<h3 id="measured-on-the-production-vms">Measured on the production
+VMs</h3>
+<p>Two VMs, 30 cores and 375 GB each, native x86_64 in Docker,
+<code>-veryfast</code>, 200 sentences per shard across 30 shards per VM
+(57 shards completed):</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<tbody>
+<tr>
+<td>pooled per-shard rate</td>
+<td><strong>0.319 sentences/s</strong> (11,400 sentences / 35,710
+shard-seconds)</td>
+</tr>
+<tr>
+<td>mean sentence length</td>
+<td>15.4 tokens</td>
+</tr>
+<tr>
+<td>sentences with <code>skips &gt; 0</code></td>
+<td>3.6–3.7%</td>
+</tr>
+<tr>
+<td>failed to parse</td>
+<td>2 of 11,400</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>configuration</th>
+<th style="text-align: right;">rate</th>
+<th>full corpus (6.89M sentences)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 VM, 30 shards</td>
+<td style="text-align: right;">9.6 sentences/s</td>
+<td>200 h (<strong>8.3 days</strong>)</td>
+</tr>
+<tr>
+<td>2 VMs, 60 shards</td>
+<td style="text-align: right;">19.2 sentences/s</td>
+<td>100 h (<strong>4.2 days</strong>)</td>
+</tr>
+</tbody>
+</table>
+<p>The full corpus is 6,893,445 sentences over 670,748 reviews, roughly
+106M tokens at the measured mean length.</p>
+<p>An earlier estimate in this report of 1–3 sentences/s per core,
+extrapolated from emulated timings on a Mac, was <strong>optimistic by
+3–10×</strong>. Native throughput is ~0.32 sentences/s per core. Do not
+size a corpus run from emulated numbers.</p>
+<h3 id="the-per-shard-spread-is-small-sample-noise">The per-shard spread
+is small-sample noise</h3>
+<p>Shard times ranged 275–1397s for an identical 200 sentences each — a
+5× spread that looks alarming and is not. Neither obvious cause holds:
+<code>corr(tokens, seconds) = 0.37</code>, and
+<code>corr(skips, seconds) = 0.06</code> (the fastest shard had 6
+timeouts, the slowest also 6).</p>
+<p>Alpino’s per-sentence cost is heavy-tailed, and <code>skips</code>
+only counts sentences where it <em>abandoned</em> a spanning analysis; a
+sentence that burns 40s and parses successfully does not appear in that
+count. At 200 sentences per shard two or three such sentences dominate
+the total. At ~230k sentences per shard in a real run this averages out,
+which is why the projections above use the pooled rate rather than the
+slowest shard.</p>
+<p><code>--user-max</code> (default 60000 ms) is the lever if 4.2 days
+is too long: it bounds what any single sentence can cost, at the price
+of more partial parses.</p>
+<h3 id="the-other-systems-for-comparison">The other systems, for
+comparison</h3>
+<p>Single process, 10-core Apple Silicon Mac:</p>
+<table>
+<thead>
+<tr>
+<th>tool</th>
+<th style="text-align: right;">tokens/s</th>
+<th>notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>spacy_lg</td>
+<td style="text-align: right;">9,456</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td>frog</td>
+<td style="text-align: right;">4,412</td>
+<td>CPU</td>
+</tr>
+<tr>
+<td>stanza</td>
+<td style="text-align: right;">1,080</td>
+<td>CPU; GPU not used</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frog-does-not-scale-the-same-way-everywhere">Frog does not scale
+the same way everywhere</h3>
+<p>Frog’s per-process rate is ~275–300 sentences/s, but how it scales
+across concurrent processes turned out to be machine-dependent, and
+badly so on one of the VMs. Measured with <code>scaling_frog.sh</code>,
+150–200 sentences per shard:</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: right;">shards</th>
+<th style="text-align: right;">Mac aggregate (sent/s)</th>
+<th style="text-align: right;">Mac efficiency</th>
+<th style="text-align: right;">VM3 aggregate</th>
+<th style="text-align: right;">VM3 efficiency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">300</td>
+<td style="text-align: right;">100%</td>
+<td style="text-align: right;">275</td>
+<td style="text-align: right;">100%</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">600</td>
+<td style="text-align: right;">100%</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1,091</td>
+<td style="text-align: right;">90.9%</td>
+<td style="text-align: right;">167</td>
+<td style="text-align: right;">15.2%</td>
+</tr>
+<tr>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">1,543</td>
+<td style="text-align: right;">85.7%</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">1,882</td>
+<td style="text-align: right;">78.4%</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+</tr>
+<tr>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">36</td>
+<td style="text-align: right;">0.6%</td>
+</tr>
+</tbody>
+</table>
+<p>On the Mac, throughput scales nearly linearly with a gentle tail-off.
+On VM3, <strong>aggregate throughput falls as shards are added</strong>
+– one process does more total work than four, which do more than
+twenty-two. That is not oversubscription, which flattens a curve rather
+than inverting it.</p>
+<p>The shape fits cache and memory-bandwidth contention: Frog’s tagger
+and MBMA are TiMBL memory-based classifiers doing pointer-chasing
+nearest-neighbour lookups over large in-memory models. One process keeps
+its working set largely resident; several evict each other and every
+lookup falls through to RAM. The degradation is uniform across shards,
+which is what a shared bottleneck looks like and what initially made it
+easy to mistake for a slow installation.</p>
+<p>The practical lesson generalises beyond Frog: <strong>measure the
+scaling curve before choosing a shard count, and pick the count with the
+highest aggregate rather than the highest core count.</strong>
+<code>make scaling-frog</code> does this in a few minutes.</p>
+<p>At 8 shards on the Mac – 1,882 sentences/s aggregate – the full
+6.89M-sentence corpus takes <strong>about 1 hour</strong>. Against
+Alpino’s 4.2 days on two 30-core VMs that is a factor of ~100, and it is
+what makes the hybrid in §8 a clear choice rather than a compromise.</p>
+<h3 id="operational-notes">Operational notes</h3>
+<p>Four things cost real time before any of the above was measurable,
+all of them worth knowing before a long run:</p>
+<ul>
+<li><strong>Run queue, not memory, is the thing to watch.</strong> A
+collapsed rate with zero swap and zero iowait but <code>r</code> several
+times <code>nproc</code> means oversubscription. This happened when
+killed runs left orphaned shards behind: <code>vmstat</code> showed
+<code>r = 155</code> on 30 cores and the rate fell to 0.106 sentences/s,
+a third of the clean figure.</li>
+<li><strong>Killing a driver orphans its shards.</strong> The shards are
+backgrounded and each spawns Alpino; killing an ancestor leaves the
+children running and holding memory. The drivers now trap INT/TERM and
+signal their process group, and for the Docker path the container is
+named and explicitly killed — terminating the <code>docker run</code>
+client alone does <em>not</em> stop the container.
+<code>make kill-runs</code> recovers from a <code>kill -9</code>.</li>
+<li><strong>Loading the input must stream.</strong> Materialising all
+rows before sharding costs 2.2 GB per process at corpus scale — 66 GB
+across 30 shards, before Alpino. Streaming and discarding non-shard rows
+brings that to ~195 MB.</li>
+<li><strong>Docker Desktop’s memory ceiling</strong> binds on a Mac but
+not on Linux. At the 3.8 GB default, 8 Alpino containers OOM-killed each
+other and throughput fell to ~0.05 sentences/s; raising it to ~31 GB
+gave an ~8× speedup.</li>
+</ul>
+<p>Alpino makes no use of the A10 GPUs — it is CPU-only. Those are only
+useful for Stanza, spaCy-trf, and lemmatizer retraining.</p>
+<hr />
+<h2 id="recommendation">8. Recommendation</h2>
+<p>For a corpus of Dutch book reviews where POS, lemma and morphology
+all matter:</p>
+<ol type="1">
+<li><strong>Alpino where syntax is actually needed</strong>, sharded one
+process per core. At 4.2 days for the full corpus on two VMs it is
+affordable but not free, so if dependency structure is only needed for
+part of the analysis, parse that part. It has the most central
+tokenisation, the second-lowest unattested rate, the richest morphology,
+and it supplies compound decomposition in the lemma. The cost is ~3
+orders of magnitude less throughput than spaCy, which is affordable for
+a one-off corpus build and not for anything interactive.</li>
+<li><strong>Frog over everything.</strong> At ~4,400 tokens/s per core,
+and ~1,880 sentences/s aggregate on 8 cores, it covers the whole
+106M-token corpus in about an hour — roughly 100× faster than Alpino —
+and supplies POS, lemma and full morpheme decomposition. With a fixed
+sentence split the case for preferring Alpino rests almost entirely on
+the dependency parse; on lemmas the two agree 94.2% exactly and 96.9%
+modulo convention, with no evidence either is better. Frog is also the
+only system here independent of the other three, making it the most
+useful second opinion.</li>
+<li><strong>Stanza or spaCy on GPU</strong> over the same corpus for a
+UD view and a cheap disagreement signal; sentences where the fast and
+slow pipelines disagree are the ones worth looking at.</li>
+<li><strong>Do not retrain spaCy’s lemmatizer on Alpino silver</strong>
+for this corpus (§6). The learning curve shows the gain is
+coverage-driven and caps out ~2.7 points above stock spaCy, while the
+full Alpino run is affordable outright.</li>
+<li><strong>DeepFrog was considered and rejected.</strong> It is a
+separate project from Frog (Rust, <code>cargo install</code>, needs
+libtorch), its GitHub repository was archived in September 2026 and
+marked suspended, and it ships <strong>POS and NER models only</strong>
+— no lemmatiser, no morphological analysis, no parser. Its POS is ~97.4
+F1 (BERTje) against Frog’s ~96–98 on the same CGN tagset, so adopting it
+would trade the lemmas and MBMA morphology that Frog is here for against
+roughly a point of tagging accuracy. The models are on HuggingFace
+(<code>proycon/bert-pos-cased-deepfrog-nld</code>) and usable from
+<code>transformers</code> directly, should a POS-only need ever
+arise.</li>
+<li><strong>Build a gold dev set.</strong> Everything here is agreement.
+A few hundred hand-corrected sentences would convert all of it into
+accuracy. <code>lemma_disagreements.csv</code> and
+<code>lemma_unattested_examples.csv</code> are sorted rarest-first and
+make a reasonable sampling frame.</li>
+</ol>
+<hr />
+<h2 id="outputs">Outputs</h2>
+<p>All under <code>results/parser_comparison/</code>:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>file</th>
+<th>contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tokens_&lt;tool&gt;.tsv</code></td>
+<td>per-token tables, line mode</td>
+</tr>
+<tr>
+<td><code>tokens_doc_&lt;tool&gt;.tsv</code></td>
+<td>per-token tables, document mode (sentence splitting)</td>
+</tr>
+<tr>
+<td><code>tokenisation_{summary,pairwise,disagreements}.csv</code></td>
+<td>§2</td>
+</tr>
+<tr>
+<td><code>lemma_{pairwise,by_pos,by_freq,flags,disagreements}.csv</code></td>
+<td>§3</td>
+</tr>
+<tr>
+<td><code>lemma_unattested_examples.csv</code></td>
+<td>flagged lemmas with context, rarest first</td>
+</tr>
+<tr>
+<td><code>compound_{summary,examples,implausible}.csv</code></td>
+<td>§4</td>
+</tr>
+<tr>
+<td><code>compound_vs_underscore_lemmas.csv</code></td>
+<td>Frog MBMA vs Alpino/Stanza seams</td>
+</tr>
+<tr>
+<td><code>sentences_{summary,pairwise}.csv</code></td>
+<td>§5</td>
+</tr>
+<tr>
+<td><code>lemma_train_&lt;silver&gt;/</code></td>
+<td>spaCy training data, config and model</td>
+</tr>
+</tbody>
+</table>
+<p>Rebuild this report with <code>make parser-report</code>.</p>
+
+</div>
+<script>
+(function () {
+  var btn = document.querySelector('.theme-toggle');
+  var root = document.documentElement;
+  btn.addEventListener('click', function () {
+    var current = root.getAttribute('data-theme');
+    var next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    btn.textContent = next === 'dark' ? 'Switch to light' : 'Switch to dark';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+# Alpino from the official RUG distribution, not a third-party Hub image.
+#
+# The binary distribution is x86_64 Linux only and links against glibc 2.35,
+# hence ubuntu:22.04 -- the base image fixes the glibc version, so the host's
+# own distribution does not matter. On an x86_64 Linux VM this runs natively.
+# On Apple Silicon, pass --platform linux/amd64 at build and run time; it works
+# under emulation but is several times slower, so benchmark on the VM.
+#
+# For a host that can only run older images, the RUG also publishes a
+# glibc-2.23 build; pass it with
+#   --build-arg ALPINO_TARBALL=Alpino-x86_64-Linux-glibc-2.23-...tar.gz
+#   --build-arg BASE_IMAGE=ubuntu:16.04
+ARG BASE_IMAGE=ubuntu:22.04
+FROM ${BASE_IMAGE}
+
+ARG ALPINO_TARBALL=Alpino-x86_64-Linux-glibc-2.35-git20260629.072753-sicstus.tar.gz
+ARG ALPINO_BASE=https://www.let.rug.nl/vannoord/alp/Alpino/versions/binary
+
+ENV DEBIAN_FRONTEND=noninteractive
+# Alpino's binary links Hdrug against Tcl/Tk, so the X11 runtime libraries are
+# required even though it is only ever run headless here.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl python3 \
+        libxft2 libxext6 libx11-6 libxss1 tcl8.6 tk8.6 \
+        perl locales \
+    && rm -rf /var/lib/apt/lists/*
+
+# Alpino's tokenizer scripts hard-code LC_ALL=en_US.utf8, so that locale has
+# to exist or perl falls back to C and mangles non-ASCII input. perl-base
+# (the default in slim images) also lacks open.pm, which tokenize_more needs.
+RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
+    && locale-gen en_US.UTF-8
+
+RUN curl -fsSL "${ALPINO_BASE}/${ALPINO_TARBALL}" -o /tmp/alpino.tar.gz \
+    && mkdir -p /opt \
+    && tar -xzf /tmp/alpino.tar.gz -C /opt \
+    && rm /tmp/alpino.tar.gz \
+    # The tarball sometimes unpacks straight to /opt/Alpino and sometimes to a
+    # versioned directory, so only rename when it is not already in place.
+    && if [ ! -d /opt/Alpino ]; then mv /opt/Alpino* /opt/Alpino; fi
+
+# Alpino's perl helpers warn and mis-handle non-ASCII without a UTF-8 locale.
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV ALPINO_HOME=/opt/Alpino
+ENV PATH=/opt/Alpino/bin:${PATH}
+WORKDIR /work
+CMD ["/bin/bash"]
