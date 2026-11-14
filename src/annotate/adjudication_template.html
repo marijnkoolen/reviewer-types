@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adjudication __BATCH__</title>
+<style>
+:root{--bg:#fafaf8;--fg:#1c1c1a;--mut:#6b6b66;--card:#fff;--bd:#dcdcd5;--acc:#2b6cb0;--accbg:#e3eefb;--agree:#2f855a;--warn:#fdf0d5}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecece8;--mut:#9a9a92;--card:#1f1f1c;--bd:#3a3a35;--acc:#6aa9ee;--accbg:#1d3250;--agree:#5fc08b;--warn:#3a3118}}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header h1{font-size:16px;margin:0 auto 0 0}
+button{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:6px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.p{background:var(--acc);color:#fff;border-color:var(--acc)}
+main{max-width:980px;margin:0 auto;padding:8px 16px 80px}
+h2{font-size:14px;margin:28px 0 8px;color:var(--mut);font-weight:600}
+.s{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin:8px 0}
+.s.done{border-left:4px solid var(--agree)}.s.dis{background:var(--warn)}
+.t{margin-bottom:6px}.n{color:var(--mut);font-size:12px;margin-right:6px}
+.row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:3px 0}
+.lab{font-size:12px;color:var(--mut);width:52px}
+.c{font-size:12px;padding:1px 7px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--fg)}
+.c.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.c.ro{border-style:dashed;color:var(--mut)}.c.ro.x{background:var(--accbg);color:var(--fg);border-style:solid}
+.q{font-size:12px;padding:1px 6px;color:var(--mut)}
+input.note{width:100%;box-sizing:border-box;margin-top:4px;font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--fg)}
+.meta{font-size:13px;color:var(--mut);margin:-4px 0 8px;font-style:italic}.ctx{font-size:13px;color:var(--mut);margin:0 0 4px}.hint{font-size:12px;color:var(--acc);margin:2px 0}.leg{font-size:12px;color:var(--mut)}
+</style></head><body>
+<header><h1>Adjudication __BATCH__ <span class="leg" id="prog"></span></h1>
+<button id="onlydis">Disagreements only</button>
+<button id="exp" class="p">Export TSV</button><button id="expj">Export JSON</button><button id="imp">Import…</button>
+<input type="file" id="file" hidden accept=".tsv,.json"></header>
+<div id="warn" hidden style="background:#c53030;color:#fff;padding:8px 16px">This viewer cannot autosave. Open the file in Safari/Chrome/Firefox, or export often: your labels are lost when this page closes.</div>
+<main id="m"></main>
+<script>
+const D=__DATA__, L=__LABELS__, KEY='adj___BATCH__', names=__NAMES__;
+let st={}, canStore=false, dirty=false;
+try{localStorage.setItem(KEY+'_t','1');canStore=localStorage.getItem(KEY+'_t')==='1';st=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const save=()=>{dirty=true;try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){canStore=false;warn()}};
+function warn(){if(canStore)return;const b=document.getElementById('warn');b.hidden=false}
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+D.forEach(d=>{ if(!st[d.sid]) st[d.sid]={gold:d.gold,note:d.note,done:('done' in d)?d.done:(d.gold.length>0||!!d.note)}; });
+const eq=d=>{const s=d.a.map(x=>[...x].sort().join());return s[0]==s[1]&&s[1]==s[2]};
+let only=false;
+function render(){
+  const m=document.getElementById('m');m.innerHTML='';let cur='';
+  D.forEach(d=>{
+    if(only&&eq(d))return;
+    if(d.review!==cur){cur=d.review;const h=document.createElement('h2');h.textContent=cur;m.appendChild(h);if(d.meta){const mm=document.createElement('div');mm.className='meta';mm.textContent=d.meta;m.appendChild(mm)}}
+    const s=st[d.sid],el=document.createElement('div');el.className='s'+(s.done?' done':'')+(eq(d)?'':' dis');
+    el.innerHTML=`${d.prev?`<div class="ctx">… ${d.prev.replace(/</g,'&lt;')}</div>`:''}<div class="t"><span class="n">${d.sid.slice(-3)}</span><b>${d.text.replace(/</g,'&lt;')}</b></div>${d.next?`<div class="ctx">${d.next.replace(/</g,'&lt;')} …</div>`:''}${d.hint?`<div class="hint">${d.hint}</div>`:''}`;
+    d.a.forEach((a,i)=>{const r=document.createElement('div');r.className='row';
+      r.innerHTML=`<span class="lab">${names[i]}</span>`+(a.length?a.map(c=>`<span class="c ro x">${c}</span>`).join(''):'<span class="c ro">–</span>');
+      const b=document.createElement('button');b.className='q';b.textContent='use';b.onclick=()=>{s.gold=[...a];s.done=true;save();render()};r.appendChild(b);el.appendChild(r)});
+    const mj=L.map(l=>l[0]).filter(c=>d.a.filter(a=>a.includes(c)).length>=2);
+    const r=document.createElement('div');r.className='row';r.innerHTML='<span class="lab"><b>gold</b></span>';
+    L.forEach(([c,n])=>{const b=document.createElement('button');b.className='c'+(s.gold.includes(c)?' on':'');b.textContent=c;b.title=n;
+      b.onclick=()=>{s.gold=s.gold.includes(c)?s.gold.filter(x=>x!==c):[...s.gold,c];s.done=true;save();render()};r.appendChild(b)});
+    const mb=document.createElement('button');mb.className='q';mb.textContent='majority';mb.onclick=()=>{s.gold=mj;s.done=true;save();render()};r.appendChild(mb);
+    const nb=document.createElement('button');nb.className='q';nb.textContent='none';nb.onclick=()=>{s.gold=[];s.done=true;save();render()};r.appendChild(nb);
+    el.appendChild(r);
+    const n=document.createElement('input');n.className='note';n.placeholder='note (reasoning, esp. FEE vs IDI)';n.value=s.note;
+    n.oninput=()=>{s.note=n.value;save()};el.appendChild(n);m.appendChild(el);
+  });
+  document.getElementById('prog').textContent=`${D.filter(d=>st[d.sid].done).length}/${D.length} done`;
+}
+function dl(name,txt){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download=name;a.click()}
+const tsv=()=>['review_id\tsent_id\tsent_text\tanno1\tanno2\tanno3\tadjudicated\tnote'].concat(D.map(d=>[d.review,d.sid,d.text,...d.a.map(x=>x.join(' ')),st[d.sid].gold.join(' '),st[d.sid].note.replace(/[\t\n]/g,' ')].join('\t'))).join('\n')+'\n';
+exp.onclick=()=>{dirty=false;dl('__BATCH___adjudicated.tsv',tsv())};
+expj.onclick=()=>dl('__BATCH___adjudicated.json',JSON.stringify(D.map(d=>({sent_id:d.sid,gold:st[d.sid].gold,note:st[d.sid].note,done:st[d.sid].done})),null,1));
+onlydis.onclick=()=>{only=!only;onlydis.textContent=only?'Show all':'Disagreements only';render()};
+imp.onclick=()=>file.click();
+file.onchange=async e=>{const t=await e.target.files[0].text();
+  if(t.trim().startsWith('[')){JSON.parse(t).forEach(x=>{if(st[x.sent_id])Object.assign(st[x.sent_id],{gold:x.gold,note:x.note,done:x.done})})}
+  else{const ls=t.trim().split('\n').slice(1);ls.forEach(l=>{const f=l.split('\t');if(st[f[1]]){st[f[1]].gold=f[6].split(' ').filter(Boolean);st[f[1]].note=f[7]||'';st[f[1]].done=!!(f[6]||f[7])}})}
+  save();render()};
+render();warn();
+</script></body></html>
