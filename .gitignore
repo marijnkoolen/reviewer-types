@@ -218,3 +218,21 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- reviewer-types project (UA-026, 2026-11-14) ---
+# The GitHub repository is public: review texts, metadata and large outputs stay out of git.
+data/
+metadata/
+notebooks/
+results/*
+!results/gt_v2_classifier/
+results/gt_v2_classifier/*
+!results/gt_v2_classifier/README.md
+!results/gt_v2_classifier/*.log
+!results/gt_v2_classifier/*/
+results/gt_v2_classifier/*/*
+!results/gt_v2_classifier/*/summary.json
+!results/gt_v2_classifier/*/per_label.tsv
+!results/gt_v2_classifier/*/train_log.json
+docs/USER_ACTIONS_resolved.before_recovery.md
+docs/*.pdf
