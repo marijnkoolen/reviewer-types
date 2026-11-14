@@ -1,0 +1,12 @@
+pandas
+numpy
+scipy
+scikit-learn
+matplotlib<3.11
+statsmodels
+pyarrow
+bambi
+pymc
+arviz
+networkx
+pyfixest
