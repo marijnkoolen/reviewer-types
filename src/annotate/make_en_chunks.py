@@ -1,6 +1,6 @@
 """Phase 4: sentence-split a language pool (English, Italian, ...) and build annotation chunks for the pilot.
 
-usage: [LANG_CODE=en] python3.11 src/annotate/make_en_chunks.py [CHUNK_SIZE=25] [SUBSET=pilot]
+usage: [LANG_CODE=en] [BASE=data/other_languages] python3.11 src/annotate/make_en_chunks.py [CHUNK_SIZE=25] [SUBSET=pilot]
 LANG_CODE picks data/other_languages/<lang> and the spaCy model (MODELS below); default en.
 Splitting: line breaks first (paragraphs, list items), then the spaCy parser per line. A fragment
 without letters or digits ('...', ':)', '***') is merged into the sentence before it. The Dutch reviews were split
@@ -18,9 +18,10 @@ import spacy
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from review_meta import format_header
 
-MODELS = {'en': 'en_core_web_sm', 'it': 'it_core_news_lg', 'ru': 'ru_core_news_sm'}
+MODELS = {'en': 'en_core_web_sm', 'it': 'it_core_news_lg', 'ru': 'ru_core_news_sm', 'nl': 'nl_core_news_lg'}
 LANG = os.environ.get('LANG_CODE', 'en')
-D = f'data/other_languages/{LANG}'
+BASE = os.environ.get('BASE', 'data/other_languages')   # data/matched for the matched-books sample
+D = f'{BASE}/{LANG}'
 size = int(sys.argv[1]) if len(sys.argv) > 1 else 25
 subset = sys.argv[2] if len(sys.argv) > 2 else 'pilot'
 out = f'{D}/chunks'

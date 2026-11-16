@@ -33,4 +33,11 @@ Answered items move to `docs/USER_ACTIONS_resolved.md`.
 - **Question (Edit, under Response):** can the Dutch corpus be linked to Goodreads books? The Dutch work ids are anonymised (`impfic-work-N`). The T7 notebook `impfic-multilingual-reviews/scripts/Link-crawled-and-impfic-reviews.ipynb` suggests you made such a link before; if so, where is it? Without it, Dutch can only be matched by genre and publication year, not by book.
 - **Default if unanswered:** nothing is drawn; the pilots stay as they are.
 - **Blocks:** the cross-language comparison, and the next Italian/Russian/English annotation rounds.
+- **Response:** a. There is a mapping file of book identifiers: `/Users/marijnkoolen/Code/impact-of-fiction/data/book_metadata/work_isbn_title_genre.tsv.gz`.
+
+### UA-032 Run the matched-books annotation? (2026-11-16, from UA-031 a)
+- **Action:** **Decide**. The matched sample is ready (`data/matched/`): 152 books, the same books in Dutch, English, Italian and Russian, 304 reviews per language, 13,821 sentences in all (English 5,144 — English reviews are long, median 12 sentences — Dutch 3,653, Russian 2,546, Italian 2,478). Same setup as the pilots: opus_a, opus_b, opus_c tie-breaker, per-language codebooks (Dutch `codebook_v2.4.md`). Estimated cost: about 11–12% of a week (scaled from Phase 3: 16k sentences ≈ 13–14%), ~40% more than four pilot-sized sets.
+- **Options:** (a) run all four languages — recommended; it gives the book-controlled comparison and ~14k more training sentences; (b) run without English, or with only the English reviews up to 400 words (~60% of the English sentences), to save ~3–5% of a week; (c) wait until after the weekly reset (2026-11-18).
+- **Default if unanswered:** nothing runs.
+- **Blocks:** the book-controlled comparison across languages.
 - **Response:**
