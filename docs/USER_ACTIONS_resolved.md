@@ -458,3 +458,11 @@ Goodreads scrape:
 - **Blocks:** the book-controlled comparison across languages.
 - **Response:** 1 a, 2 a.
 - **Outcome (2026-11-16):** redrawn with Goodreads Dutch, English, Italian and Russian (one top-5 and one bottom-third review per book and language) plus the Dutch corpus as a fifth arm; 152 books, 304 reviews per arm, 16,863 sentences. Codebook for Dutch Goodreads: `docs/codebook_v2.4_nl_gr.md`. English bottom-band reviews are still liked (median 27.5): every English page is cut off at 30. Running the annotation: UA-033.
+
+### UA-033 Run the matched-books annotation (2026-11-16, from UA-032)
+- **Action:** **Decide**. The redrawn matched sample is chunked (`data/matched/<arm>/chunks/`): 16,863 sentences in five arms (en 5,651, nlc 3,528, it 3,034, ru 2,767, nl 1,883). Same setup as the pilots (opus_a, opus_b, opus_c tie-breaker). Estimated cost: about 13–14% of a week (the size of Phase 3).
+- **Options:** (a) run all five arms now — recommended; (b) run now without English (saves ~4–5% of a week; English is the arm this scrape samples worst, see UA-032) and add English after your four-page scrape; (c) wait for the weekly reset of 2026-11-18.
+- **Default if unanswered:** nothing runs.
+- **Blocks:** the book-controlled comparison across languages and platforms.
+- **Response:** a
+- **Outcome (2026-11-16):** runs started on all five arms (opus_a, opus_b, then opus_c), up to 5 agents at a time; results in the matched-books part of `docs/GROUND_TRUTH_PLAN.md`.
