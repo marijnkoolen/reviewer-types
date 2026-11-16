@@ -1,0 +1,90 @@
+Loading weights:   0%|          | 0/197 [00:00<?, ?it/s]Loading weights: 100%|██████████| 197/197 [00:00<00:00, 10441.37it/s]
+[transformers] [1mRobertaForSequenceClassification LOAD REPORT[0m from: /Users/marijnkoolen/.cache/huggingface/hub/models--pdelobelle--robbert-v2-dutch-base/snapshots/271b8bf12b7e429434ce953efb432e8373e84453/
+Key                        | Status     | 
+---------------------------+------------+-
+lm_head.bias               | UNEXPECTED | 
+lm_head.dense.bias         | UNEXPECTED | 
+lm_head.layer_norm.weight  | UNEXPECTED | 
+lm_head.dense.weight       | UNEXPECTED | 
+lm_head.layer_norm.bias    | UNEXPECTED | 
+classifier.dense.bias      | MISSING    | 
+classifier.out_proj.weight | MISSING    | 
+classifier.out_proj.bias   | MISSING    | 
+classifier.dense.weight    | MISSING    | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+ep 0 step 100/5696 loss 0.3692 82s
+ep 0 step 200/5696 loss 0.2960 158s
+ep 0 step 300/5696 loss 0.3268 240s
+ep 0 step 400/5696 loss 0.2388 466s
+ep 0 step 500/5696 loss 0.2988 542s
+ep 0 step 600/5696 loss 0.1834 616s
+ep 0 step 700/5696 loss 0.2453 691s
+ep 0 step 800/5696 loss 0.1301 767s
+ep 0 step 900/5696 loss 0.2096 841s
+ep 0 step 1000/5696 loss 0.2064 914s
+ep 0 step 1100/5696 loss 0.1311 989s
+ep 0 step 1200/5696 loss 0.1985 1063s
+ep 0 step 1300/5696 loss 0.1528 1138s
+ep 0 step 1400/5696 loss 0.1979 1214s
+{'epoch': 0, 'step': 1424, 'dev_micro_f1@0.5': 0.6970138383102695, 'secs': 1266.4207470417023}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  3.04it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  3.04it/s]
+ep 1 step 1500/5696 loss 0.1433 1325s
+ep 1 step 1600/5696 loss 0.1849 1401s
+ep 1 step 1700/5696 loss 0.0983 1482s
+ep 1 step 1800/5696 loss 0.1645 1557s
+ep 1 step 1900/5696 loss 0.1278 1631s
+ep 1 step 2000/5696 loss 0.0793 1705s
+ep 1 step 2100/5696 loss 0.1266 1780s
+ep 1 step 2200/5696 loss 0.1384 1853s
+ep 1 step 2300/5696 loss 0.0673 1930s
+ep 1 step 2400/5696 loss 0.1370 2006s
+ep 1 step 2500/5696 loss 0.0984 2081s
+ep 1 step 2600/5696 loss 0.1529 2157s
+ep 1 step 2700/5696 loss 0.1099 2231s
+ep 1 step 2800/5696 loss 0.1384 2308s
+{'epoch': 1, 'step': 2848, 'dev_micro_f1@0.5': 0.7694502727654218, 'secs': 2371.6824221611023}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  6.53it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  6.52it/s]
+ep 2 step 2900/5696 loss 0.0933 2411s
+ep 2 step 3000/5696 loss 0.0699 2486s
+ep 2 step 3100/5696 loss 0.0847 2563s
+ep 2 step 3200/5696 loss 0.0769 2638s
+ep 2 step 3300/5696 loss 0.0943 2712s
+ep 2 step 3400/5696 loss 0.0702 2788s
+ep 2 step 3500/5696 loss 0.0706 2864s
+ep 2 step 3600/5696 loss 0.0833 2939s
+ep 2 step 3700/5696 loss 0.0768 3014s
+ep 2 step 3800/5696 loss 0.1168 3089s
+ep 2 step 3900/5696 loss 0.0822 3163s
+ep 2 step 4000/5696 loss 0.1036 3239s
+ep 2 step 4100/5696 loss 0.0941 3315s
+ep 2 step 4200/5696 loss 0.0846 3391s
+{'epoch': 2, 'step': 4272, 'dev_micro_f1@0.5': 0.7818121252498335, 'secs': 3480.3339982032776}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.17it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  7.17it/s]
+ep 3 step 4300/5696 loss 0.0915 3503s
+ep 3 step 4400/5696 loss 0.0534 3580s
+ep 3 step 4500/5696 loss 0.0385 3658s
+ep 3 step 4600/5696 loss 0.0677 3733s
+ep 3 step 4700/5696 loss 0.0631 3808s
+ep 3 step 4800/5696 loss 0.1034 3881s
+ep 3 step 4900/5696 loss 0.0556 3957s
+ep 3 step 5000/5696 loss 0.1093 4032s
+ep 3 step 5100/5696 loss 0.0616 4106s
+ep 3 step 5200/5696 loss 0.0667 4180s
+ep 3 step 5300/5696 loss 0.0711 4255s
+ep 3 step 5400/5696 loss 0.0969 4328s
+ep 3 step 5500/5696 loss 0.0859 4402s
+ep 3 step 5600/5696 loss 0.0547 4476s
+{'epoch': 3, 'step': 5696, 'dev_micro_f1@0.5': 0.7858610768598439, 'secs': 4573.3254561424255}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.60it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  5.59it/s]
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights: 100%|██████████| 201/201 [00:00<00:00, 2792.29it/s]
+test                     n= 2815 micro-F1=0.796 macro-F1=0.726
+test_original            n= 1235 micro-F1=0.805 macro-F1=0.702
+test_random              n=  596 micro-F1=0.771 macro-F1=0.685
+test_enriched            n=  984 micro-F1=0.798 macro-F1=0.742
+dev                      n= 3521 micro-F1=0.796 macro-F1=0.729
+gold_human               n=  348 micro-F1=0.768 macro-F1=0.691
+gold_human__v24_labels   n=  348 micro-F1=0.972 macro-F1=0.966
+exit 0

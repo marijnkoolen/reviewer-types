@@ -1,0 +1,23 @@
+{
+  "args": {
+    "model": "emanjavacas/GysBERT",
+    "name": "smoke",
+    "epochs": 1,
+    "bs": 16,
+    "lr": 3e-05,
+    "max_len": 256,
+    "ctx_chars": 700,
+    "max_steps": 30,
+    "seed": 13
+  },
+  "device": "mps",
+  "best_epoch": 0,
+  "log": [
+    {
+      "epoch": 0,
+      "step": 30,
+      "dev_micro_f1@0.5": 0.0,
+      "secs": 32.09772491455078
+    }
+  ]
+}

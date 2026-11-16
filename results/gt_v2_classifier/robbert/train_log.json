@@ -1,0 +1,41 @@
+{
+  "args": {
+    "model": "/Users/marijnkoolen/.cache/huggingface/hub/models--pdelobelle--robbert-v2-dutch-base/snapshots/271b8bf12b7e429434ce953efb432e8373e84453/",
+    "name": "robbert",
+    "epochs": 4,
+    "bs": 16,
+    "lr": 3e-05,
+    "max_len": 256,
+    "ctx_chars": 700,
+    "max_steps": 0,
+    "seed": 13
+  },
+  "device": "mps",
+  "best_epoch": 3,
+  "log": [
+    {
+      "epoch": 0,
+      "step": 1424,
+      "dev_micro_f1@0.5": 0.6970138383102695,
+      "secs": 1266.4207470417023
+    },
+    {
+      "epoch": 1,
+      "step": 2848,
+      "dev_micro_f1@0.5": 0.7694502727654218,
+      "secs": 2371.6824221611023
+    },
+    {
+      "epoch": 2,
+      "step": 4272,
+      "dev_micro_f1@0.5": 0.7818121252498335,
+      "secs": 3480.3339982032776
+    },
+    {
+      "epoch": 3,
+      "step": 5696,
+      "dev_micro_f1@0.5": 0.7858610768598439,
+      "secs": 4573.3254561424255
+    }
+  ]
+}
