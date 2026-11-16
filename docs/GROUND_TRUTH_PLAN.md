@@ -20,8 +20,8 @@
 - **Combined ground truth: `data/gt_v2/labels.tsv`** (`src/annotate/build_ground_truth.py`): 3,850 reviews, 29,462 sentences; columns include `set` (original/phase3), `stratum` and `inclusion_prob` for weighting. Rare labels now: RCP 918, REF 822, SCX 751, MET 721, QUO 707 (lowest), IDI 1,496.
 - For corpus prevalence use only set=original or stratum=random, or weight by 1/inclusion_prob; enriched strata over-represent RCP/REF/SCX/MET.
 - Your revised gold (`data/adjudication/gold_batches1-3.tsv`, 348 sentences) is kept separately as the evaluation set; it is not merged into gt_v2.
-- Sentence classifier on gt_v2 started (2026-11-14): TF-IDF baseline done, RobBERT fine-tune waits for UA-017. See section below.
-- RobBERT fine-tune (UA-017 a, 4 epochs) interrupted 2026-11-14 ~10:45 by a system crash (disk full, two Python processes): 2 of 4 epochs done (dev micro-F1@0.5 0.691, 0.764; ~1 s/step, 47 min), checkpoint after epoch 2 in `results/gt_v2_classifier/robbert/model/`, no test results, no `train_log.json`. The script has no resume. Rerun from scratch started 2026-11-14 ~11:10 (UA-020 a), with batches now padded to a multiple of 32 to stop MPS memory growth; crashed run kept in `results/gt_v2_classifier/robbert_crash_2ep/`.
+- Sentence classifier on gt_v2 (2026-11-14): TF-IDF baseline and RobBERT fine-tune done; RobBERT test micro-F1 0.80, on your gold 0.77. See section below.
+- RobBERT fine-tune (UA-017 a): the first run crashed on 2026-11-14 (swap > 50 GB; MPS kept a graph per batch length). Rerun from scratch with batches padded to a multiple of 32 (UA-020 a): 4 epochs in 76 min, no swap. Crashed run kept in `results/gt_v2_classifier/robbert_crash_2ep/` (not in git).
 - Phase 4 English pilot started (2026-11-14), see section below. English pilot labelled (opus_a/b/c); your check waits (UA-023). Italian and Russian: reviews parsed and pools drawn, Italian pilot chunked; see the section below (UA-021, UA-022).
 
 ## Phase 4: English pilot (2026-11-14)
@@ -45,7 +45,7 @@
 - Codebooks (UA-022 a): `docs/codebook_v2.4_it.md`, `docs/codebook_v2.4_ru.md`; prompt variant in `src/annotate/full_run_prompt.md`. Human check by colleagues after the pilots.
 - Russian split and chunks (UA-021; `ru_core_news_sm` installed in my user's Python packages): pool 16,028 sentences (median 5 per review, max 188); pilot 2,598 sentences in 12 chunks (`data/other_languages/ru/chunks/`). Runs not started.
 - **Paused 2026-11-14 ~12:10 (connection about to drop).** Italian opus_a: chunks 000–005 done (6 of 12); no agents running. To resume, run `RUN_BASE=data/other_languages/it venv/bin/python src/annotate/check_full_run.py opus_a opus_b`: it lists the chunks still to do. Delete nothing; incomplete part files are reported. Then opus_b on all 12 chunks, then the tie-breaker (`make_tiebreak_input.py opus_a opus_b`, opus_c 4 chunks per agent), then `build_majority.py`.
-- RobBERT rerun (local, not affected by the connection): epoch 1 dev 0.697, epoch 2 0.769; it writes `results/gt_v2_classifier/robbert/` and `robbert_train_rerun.log` when done. Still to do: add the results to the classifier section and `results/gt_v2_classifier/README.md`.
+- RobBERT rerun done (2026-11-14), see the classifier section.
 
 ## Sentence classifier on gt_v2 (2026-11-14)
 - Scripts `src/classifier/` (`gt_v2_data.py` split, `gt_v2_baseline.py`, `gt_v2_transformer.py`, `gt_v2_compare_old.py`); results and file guide `results/gt_v2_classifier/README.md`. Run with Homebrew `python3.11` (torch 2.12 + MPS); `venv/` has no torch.
@@ -54,7 +54,13 @@
 - **TF-IDF + one-vs-rest LR** (sentence word+char n-grams, previous/next sentence, header, position): micro-F1 test 0.72 (random stratum 0.67), macro-F1 0.63; on your gold micro 0.69, macro 0.56. Ceiling: the v2.4 labels vs your gold reach micro 0.97.
   - Good (F1 ≥ 0.7 on test): EVA, NAR, STY, REC, CTX. Weak: QUO 0.36, SCX 0.46, REF 0.48 (0.08 on gold, 18 sentences), STR 0.55, THM 0.58, RCP 0.58.
 - **vs old RobBERT** on the same gold sentences (335 sentences / 29 reviews; one review has a different sentence split; 17 labels, no MET): old RobBERT micro 0.64 / macro 0.50, TF-IDF 0.69 / 0.54. Same picture on the 26 reviews that were in the old model's test set (0.63 vs 0.70). Old RobBERT is better on OTW, RCP, REF, CLS, COO, NAR, IDI; the baseline on FEE, STR, THM, SCX, REC, EVA, CTX, STY. Most of those are labels whose rules changed in v2.x. QUO is 0 for both.
-- RobBERT fine-tune: script ready and pipeline smoke-tested (GysBERT, 30 steps). Full run ~1.5–2 h on MPS plus a ~500 MB model download: UA-017.
+- **RobBERT** (`pdelobelle/robbert-v2-dutch-base`, 4 epochs, lr 3e-5, batch 16, max 256 tokens, sentence + neighbours ~700 chars; MPS 76 min): dev micro-F1@0.5 per epoch 0.697 / 0.769 / 0.782 / 0.786. With dev-tuned thresholds: test micro 0.80 / macro 0.73 (original 0.81, random stratum 0.77, enriched 0.80); on your gold micro 0.77 / macro 0.69 (TF-IDF 0.69 / 0.56, old RobBERT 0.64 / 0.50; ceiling 0.97). Per-label test F1: EVA 0.87, NAR 0.87, STY 0.80, REC 0.80, FEE 0.80, CTX 0.79, CLS 0.77, QUO 0.76 (TF-IDF 0.36), COO 0.75, AUT 0.73, OTW 0.72, THM 0.70, IDI 0.69, RCP 0.69, MET 0.68, STR 0.63, SCX 0.52, REF 0.49. Next: the larger open model on the A10 GPUs (UA-025 a).
+
+## Open model on the A10 GPUs (2026-11-16, UA-025 a, UA-028)
+- Approach: an open-weight LLM (7–14B) fine-tuned with 4-bit QLoRA and an 18-label head. It reads the whole review (header, numbered sentences, then every sentence again) and scores each sentence at the end of its repeated copy, so every sentence sees the whole review, as the agents did. Large encoder baseline: XLM-R-large with the RobBERT setup.
+- Scripts: `src/classifier/gt_v2_llm.py` (train + evaluate with the same split, thresholds and eval sets as RobBERT), `gt_v2_llm_predict.py` (corpus labelling, sharded over GPUs, resumable), `gt_v2_export.py` (one self-contained input file, `data/gt_v2/train_input.tsv.gz`, for the VMs), `requirements_gpu.txt`. Smoke-tested on the Mac with Qwen2.5-0.5B unquantised (training, dev scoring, saving, corpus labelling of 60 reviews); the 4-bit path is first tested on the VMs.
+- Grouping check on all 3,850 reviews: every sentence labelled exactly once; at 2,048 tokens 4,003 sequences (153 long reviews split), 2.1M tokens per epoch.
+- Runbook with the exact commands: `docs/GPU_RUNBOOK.md` (VM1: Qwen2.5-7B, EuroLLM-9B; VM2: Qwen2.5-14B, XLM-R-large). Your step.
 
 ## Findings from the current data (1,250 reviews, ~13.5k sentences, 3 annotators)
 - Annotators: anno1 (12.8k sentences, 45 reviews missing), anno2, anno3 (13.5k each). Multi-label per sentence, 18 real labels; the parent columns `Content`/`Reader_response`/`Style`/`None` are essentially unused (<0.3%) and must be derived, not annotated.

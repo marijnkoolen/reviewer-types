@@ -402,3 +402,23 @@ Goodreads scrape:
 - **Blocks:** nothing.
 - **Response:**
 - **Answer (2026-11-14):** done via the Claude app (option b): every stub was replaced with recovered text; the copy from before recovery is `docs/USER_ACTIONS_resolved.before_recovery.md`.
+
+### UA-028 GPU details, and the 8 modified tracked files (2026-11-14, from UA-025 and UA-026)
+- **Action:** **Edit** this entry under Response:
+  - (1) for UA-025 a: GPU type and memory, how many, where they are, how jobs run there (ssh, SLURM, …), and whether I can reach the machine from here or you start the jobs.
+  - (2) for UA-026 a: whether the 8 tracked files changed by earlier sessions (`report/report.html`, `report/report.md`, `report/report_phase_c.html`, `report/report_phase_c.md`, `src/common/data_prep.py`, `src/common/silver_data_prep.py`, `src/common/similarity.py`, `src/figures.py`) go into a commit as they are. I have not reviewed those changes; `git diff --stat` shows the size.
+  - (3) whether `docs/Annotation-categories-book_reviews.pdf` (the original guidelines; codebook v1 was transcribed from it) may go into the public repository. I left it out with `docs/*.pdf` in `.gitignore`.
+- **Options:** (1) free text. (3) yes / no. (2) (a) commit them as one "state of earlier sessions" commit; (b) I review the diffs first and propose commits; (c) leave them uncommitted — recommended until you have looked, since I don't know their origin.
+- **Default if unanswered:** (1) I write the training script generic (one CUDA GPU, settings by flag) and smoke-test it here on a tiny model; (2) the files stay uncommitted.
+- **Blocks:** (1) the GPU job files and batch sizes; (2) nothing.
+- **Response:** (1) 2 VMs, each with 2 A10 GPUs, each A10 has 22GB memory. (2) I've commited the files. (3) no, let's add a link to the original, which is published on Zenodo: https://zenodo.org/records/23335376
+- **Outcome (2026-11-16):** (1) the open-model scripts target 2 VMs × 2 A10 (22 GB): 4-bit LoRA (QLoRA) so a 7–9B model trains on one A10, one run per GPU, inference sharded over all four; you start the jobs. (2) noted, committed by you (05d5b56). (3) the PDF stays out of git; the codebook headers now link to https://zenodo.org/records/23335376.
+
+### UA-029 Resume the Italian and Russian pilot runs? (2026-11-16, from the pause of 2026-11-14)
+- **Action:** **Decide**. On 2026-11-14 you paused new tasks because the connection was about to drop. State: Italian opus_a 6 of 12 chunks done (000–005), opus_b and opus_c not started; Russian chunked (12 chunks, 2,598 sentences), no runs. Resuming means Italian opus_a 006–011, opus_b 000–011, tie-breaker; then the same for Russian. Codebooks `docs/codebook_v2.4_it.md`, `docs/codebook_v2.4_ru.md`.
+- **Options:** (a) resume both now, Italian first, up to 5 agents at a time; roughly 2% of a week per language, as for English — recommended; (b) Italian only; (c) wait (say until when).
+- **Default if unanswered:** nothing runs.
+- **Blocks:** the Italian and Russian agreement figures and the check pages for your colleagues.
+- **Response:**
+- **Answer (in chat, 2026-11-16):** "UA 29 yes, let's continue." (option a)
+- **Outcome (2026-11-16):** Italian runs resumed (opus_a 006–011, then opus_b, tie-breaker), Russian after; progress in the Phase 4 Italian and Russian section of `docs/GROUND_TRUTH_PLAN.md`.

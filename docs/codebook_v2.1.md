@@ -1,4 +1,4 @@
-# Annotation codebook v2.1 (v2 + rulings from adjudication batch 2; v2 revised from v1 after adjudication batch 1; v1 was transcribed from docs/Annotation-categories-book_reviews.pdf)
+# Annotation codebook v2.1 (v2 + rulings from adjudication batch 2; v2 revised from v1 after adjudication batch 1; v1 was transcribed from the original annotation guidelines (https://zenodo.org/records/23335376; local copy docs/Annotation-categories-book_reviews.pdf, not in git))
 
 Task: for every sentence of a Dutch book review, assign ZERO OR MORE labels (multi-label). Judge each sentence in the context of the whole review. Use the child labels only (codes below); never use the parent categories alone.
 
