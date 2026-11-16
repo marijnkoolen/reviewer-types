@@ -25,6 +25,7 @@ GT = 'data/gt_v2/labels.tsv'
 GOLD = 'data/adjudication/gold_batches1-3.tsv'
 OUT = 'results/gt_v2_classifier'
 SPLIT = f'{OUT}/split.tsv'
+EXPORT = 'data/gt_v2/train_input.tsv.gz'   # self-contained copy for other machines (gt_v2_export.py)
 SEED = 20261114
 FRAC = {'train': 0.8, 'dev': 0.1, 'test': 0.1}
 
@@ -72,7 +73,13 @@ def make_split():
 
 
 def load():
-    """Sentence table with split, header, position and gold labels (for the gold reviews)."""
+    """Sentence table with split, header, position and gold labels (for the gold reviews).
+
+    On a machine without the source files (no data/gt_v2/labels.tsv) the export from gt_v2_export.py is read instead.
+    """
+    if not os.path.exists(GT) and os.path.exists(EXPORT):
+        return pd.read_csv(EXPORT, sep='\t', quoting=csv.QUOTE_NONE, escapechar='\\', keep_default_na=False,
+                           dtype={'pos': int, 'n_sent': int})
     d = read_gt()
     split = pd.read_csv(SPLIT, sep='\t', keep_default_na=False)
     d = d.merge(split[['review_id', 'split']], on='review_id', how='left')

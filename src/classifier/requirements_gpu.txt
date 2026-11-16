@@ -1,0 +1,10 @@
+# For the A10 VMs (gt_v2_llm.py, gt_v2_llm_predict.py, gt_v2_transformer.py). Install torch first with the wheel
+# that matches the VM's CUDA version (https://pytorch.org/get-started/locally/), then: pip install -r this file.
+transformers>=4.56
+peft>=0.13
+bitsandbytes>=0.43
+accelerate>=1.0
+safetensors
+numpy
+pandas
+scikit-learn
