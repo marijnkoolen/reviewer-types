@@ -15,7 +15,8 @@ Answered items move to `docs/USER_ACTIONS_resolved.md`.
 - **Action:** **Edit** this entry under Response:
   - (1) for UA-025 a: GPU type and memory, how many, where they are, how jobs run there (ssh, SLURM, …), and whether I can reach the machine from here or you start the jobs.
   - (2) for UA-026 a: whether the 8 tracked files changed by earlier sessions (`report/report.html`, `report/report.md`, `report/report_phase_c.html`, `report/report_phase_c.md`, `src/common/data_prep.py`, `src/common/silver_data_prep.py`, `src/common/similarity.py`, `src/figures.py`) go into a commit as they are. I have not reviewed those changes; `git diff --stat` shows the size.
-- **Options:** (1) free text. (2) (a) commit them as one "state of earlier sessions" commit; (b) I review the diffs first and propose commits; (c) leave them uncommitted — recommended until you have looked, since I don't know their origin.
+  - (3) whether `docs/Annotation-categories-book_reviews.pdf` (the original guidelines; codebook v1 was transcribed from it) may go into the public repository. I left it out with `docs/*.pdf` in `.gitignore`.
+- **Options:** (1) free text. (3) yes / no. (2) (a) commit them as one "state of earlier sessions" commit; (b) I review the diffs first and propose commits; (c) leave them uncommitted — recommended until you have looked, since I don't know their origin.
 - **Default if unanswered:** (1) I write the training script generic (one CUDA GPU, settings by flag) and smoke-test it here on a tiny model; (2) the files stay uncommitted.
 - **Blocks:** (1) the GPU job files and batch sizes; (2) nothing.
 - **Response:**

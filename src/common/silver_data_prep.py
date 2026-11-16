@@ -66,6 +66,11 @@ def main():
         # not worth more care than that.
         print(f"  dropping {n_dupe_ids} duplicate review_id row(s) in metadata (keeping first)")
         meta = meta.drop_duplicates("review_id", keep="first")
+    # user_id values are generated per platform (source_id), so the same string
+    # on two platforms is two different people (920 ids / 27,286 reviews collide
+    # across platforms). Qualify it so every reviewer-level groupby on user_id
+    # downstream groups on (source_id, user_id) without further changes.
+    meta["user_id"] = meta["source_id"].astype(str) + ":" + meta["user_id"].astype(str)
     valid_ids = set(meta["review_id"])
     print(f"  {len(meta)} fiction-genre reviews (of {len(meta_full)} total)")
 

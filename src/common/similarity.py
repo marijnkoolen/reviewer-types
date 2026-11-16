@@ -248,3 +248,102 @@ def scalable_group_similarity_test(df, X, group_col, min_size=2, cap=100, pair_f
         "baseline_mean_similarity": baseline["mean"], "baseline_se": baseline["se"],
         "z_score": z, "p_value": p_value,
     }, per_group
+
+
+# ---------------------------------------------------------------------------
+# Matched random-pairs baselines (P3, src/27c_similarity_matched_baselines.py)
+#
+# The unmatched baseline above draws pairs from the whole corpus, so a
+# within-group gap also contains whatever the group shares by construction
+# (genre, platform, review length). The functions below keep the same
+# block-diagonal / capped within-group machinery but (1) return the within-
+# group pairs explicitly with their index, so each pair can be given a
+# stratum label, and (2) draw baseline pairs of DIFFERENT groups from the
+# same strata, weighted to the within-group pairs' stratum distribution.
+# ---------------------------------------------------------------------------
+
+def within_group_pairs(df, group_col, min_size=2, cap=100, pair_filter_col=None, seed=0):
+    """Same sampling rule as `per_group_similarity` (groups > cap are randomly
+    subsampled to `cap`; optional pair_filter_col drops pairs equal on it), but
+    returns the pair list: arrays (gidx, i, j) with i<j positions into df and
+    gidx an integer group code. Cosine sims are computed separately via
+    `pair_cosine` so the same pairs can be scored on several vectors."""
+    rng = np.random.default_rng(seed)
+    vals = df[group_col].to_numpy()
+    filt = df[pair_filter_col].to_numpy() if pair_filter_col else None
+    G, I, J = [], [], []
+    gcode = 0
+    for g, idx in pd.Series(np.arange(len(df))).groupby(vals).indices.items():
+        if len(idx) < min_size:
+            continue
+        if len(idx) > cap:
+            idx = np.sort(rng.choice(idx, size=cap, replace=False))
+        n = len(idx)
+        a, b = np.triu_indices(n, k=1)
+        if filt is not None:
+            keep = filt[idx[a]] != filt[idx[b]]
+            a, b = a[keep], b[keep]
+        if len(a) == 0:
+            continue
+        G.append(np.full(len(a), gcode, dtype=np.int32))
+        I.append(idx[a].astype(np.int32)); J.append(idx[b].astype(np.int32))
+        gcode += 1
+    return np.concatenate(G), np.concatenate(I), np.concatenate(J)
+
+
+def pair_cosine(X, i, j, chunk=2_000_000):
+    Xn = X / np.linalg.norm(X, axis=1, keepdims=True)
+    out = np.empty(len(i), dtype=np.float32)
+    for s in range(0, len(i), chunk):
+        out[s:s + chunk] = np.clip((Xn[i[s:s + chunk]] * Xn[j[s:s + chunk]]).sum(axis=1), -1, 1)
+    return out
+
+
+def pair_keys(cell, i, j):
+    """Unordered pair of per-review stratum cells -> (lo, hi) and a dense key id."""
+    ci, cj = cell[i].astype(np.int64), cell[j].astype(np.int64)
+    lo, hi = np.minimum(ci, cj), np.maximum(ci, cj)
+    n_cell = int(cell.max()) + 1
+    uniq, inv = np.unique(lo * n_cell + hi, return_inverse=True)
+    return uniq // n_cell, uniq % n_cell, inv
+
+
+def sample_keys(Xs, cell, grp, key_lo, key_hi, key_n, seed=0, max_rounds=6):
+    """Draw key_n[k] different-group pairs for each key k and return per-key
+    mean and se of cosine for every matrix in Xs. Keys that yield <10 valid
+    pairs are marked invalid (mean=nan)."""
+    rng = np.random.default_rng(seed)
+    Xns = [X / np.linalg.norm(X, axis=1, keepdims=True) for X in Xs]
+    order = np.argsort(cell, kind="stable")
+    sc = cell[order]
+    n_cell = int(cell.max()) + 1
+    start = np.searchsorted(sc, np.arange(n_cell), side="left")
+    end = np.searchsorted(sc, np.arange(n_cell), side="right")
+    K = len(key_lo)
+    mean = np.full((len(Xs), K), np.nan)
+    se = np.full((len(Xs), K), np.nan)
+    n_got = np.zeros(K, dtype=int)
+    for k in range(K):
+        a, b = key_lo[k], key_hi[k]
+        na, nb = end[a] - start[a], end[b] - start[b]
+        if na == 0 or nb == 0:
+            continue
+        need = int(key_n[k])
+        ii, jj = [], []
+        have = 0
+        for _ in range(max_rounds):
+            m = max(2 * (need - have), 20)
+            i = order[start[a] + rng.integers(0, na, m)]
+            j = order[start[b] + rng.integers(0, nb, m)]
+            ok = (i != j) & (grp[i] != grp[j])
+            ii.append(i[ok]); jj.append(j[ok]); have += int(ok.sum())
+            if have >= need:
+                break
+        i = np.concatenate(ii)[:need]; j = np.concatenate(jj)[:need]
+        if len(i) < 10:
+            continue
+        n_got[k] = len(i)
+        for v, Xn in enumerate(Xns):
+            s = np.clip((Xn[i] * Xn[j]).sum(axis=1), -1, 1)
+            mean[v, k] = s.mean(); se[v, k] = s.std() / np.sqrt(len(s))
+    return mean, se, n_got

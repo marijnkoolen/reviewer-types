@@ -73,46 +73,60 @@ def short(label):
 
 
 def fig_occurrence():
-    df = pd.read_csv(RESULTS / "01_occurrence/gold_occurrence.csv").sort_values("prevalence")
-    fig, ax = plt.subplots(figsize=(8, 7))
-    colors = [BLUE if lvl == "main" else BLUE_LIGHT for lvl in df["level"]]
-    y = np.arange(len(df))
-    ax.barh(y, df["prevalence"] * 100, color=colors, height=0.7, zorder=3)
-    err_lo = (df["prevalence"] - df["prevalence_ci_lo"]) * 100
-    err_hi = (df["prevalence_ci_hi"] - df["prevalence"]) * 100
-    ax.errorbar(df["prevalence"] * 100, y, xerr=[err_lo, err_hi], fmt="none",
-                ecolor=INK_SECONDARY, elinewidth=1, capsize=2, zorder=4)
-    labels = [l + (" *sparse*" if s else "") for l, s in zip(df["label"], df["sparse_gold_flag"])]
-    ax.set_yticks(y, labels, fontsize=8.5)
-    ax.set_xlabel("% of reviews containing >=1 sentence of this category")
-    ax.set_title("Prevalence of each (sub)category across 1,152 gold reviews\n"
-                  "(95% bootstrap CI; darker bars = main category, lighter = sub-category)",
-                  fontsize=10.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    legend_handles = [Patch(facecolor=BLUE, label="main category"),
-                       Patch(facecolor=BLUE_LIGHT, label="sub-category")]
-    ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "occurrence_prevalence.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "01_occurrence/gold_occurrence.csv").sort_values("prevalence")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8, 7 if selection == "all" else 4))
+        colors = [BLUE if lvl == "main" else BLUE_LIGHT for lvl in df["level"]]
+        y = np.arange(len(df))
+        ax.barh(y, df["prevalence"] * 100, color=colors, height=0.7, zorder=3)
+        err_lo = (df["prevalence"] - df["prevalence_ci_lo"]) * 100
+        err_hi = (df["prevalence_ci_hi"] - df["prevalence"]) * 100
+        ax.errorbar(df["prevalence"] * 100, y, xerr=[err_lo, err_hi], fmt="none",
+                    ecolor=INK_SECONDARY, elinewidth=1, capsize=2, zorder=4)
+        labels = [l + (" *sparse*" if s else "") for l, s in zip(df["label"], df["sparse_gold_flag"])]
+        ax.set_xlabel("% of reviews containing >=1 sentence of this category")
+        if selection == "all":
+            ax.set_yticks(y, labels, fontsize=8.5)
+            ax.set_title("Prevalence of each (sub)category across 1,152 gold reviews\n"
+                          "(95% bootstrap CI; darker bars = main category, lighter = sub-category)",
+                          fontsize=10.5, loc="left")
+            legend_handles = [Patch(facecolor=BLUE, label="main category"),
+                               Patch(facecolor=BLUE_LIGHT, label="sub-category")]
+            ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
+        else:
+            # single series: no legend needed
+            ax.set_yticks(y, labels, fontsize=11)
+            ax.set_title("Prevalence of each main category across 1,152 gold reviews\n"
+                          "(95% bootstrap CI)",
+                          fontsize=10.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"occurrence_prevalence-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 NAN_COLOR = "#fff3d6"  # pale yellow -- deliberately off the blue-gray-red scale so
                         # "excluded pair / diagonal" never reads as "PMI about 0"
 
 
-def _heatmap(matrix, labels, out_path, title, value_label, vlim=None):
+def _heatmap(matrix, labels, out_path, title, value_label, vlim=None, full_labels=False):
+    """full_labels: compact layout with full category names, for the main-categories-only versions."""
     n = len(labels)
-    fig, ax = plt.subplots(figsize=(10, 8.5))
+    fig, ax = plt.subplots(figsize=(8, 6.5) if full_labels else (10, 8.5))
     vmax = vlim if vlim else np.nanmax(np.abs(matrix))
     norm = TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax)
     cmap = DIVERGING_CMAP.copy()
     cmap.set_bad(NAN_COLOR)
     im = ax.imshow(matrix, cmap=cmap, norm=norm, aspect="equal")
-    ax.set_xticks(range(n), [short(l) for l in labels], rotation=90, fontsize=7.5)
-    ax.set_yticks(range(n), [short(l) for l in labels], fontsize=7.5)
+    if full_labels:
+        ax.set_xticks(range(n), labels, rotation=45, ha="right", rotation_mode="anchor", fontsize=10)
+        ax.set_yticks(range(n), labels, fontsize=10)
+    else:
+        ax.set_xticks(range(n), [short(l) for l in labels], rotation=90, fontsize=7.5)
+        ax.set_yticks(range(n), [short(l) for l in labels], fontsize=7.5)
     ax.set_title(title, fontsize=10.5, loc="left")
     cbar = fig.colorbar(im, ax=ax, shrink=0.7, pad=0.02)
     cbar.set_label(value_label, fontsize=9)
@@ -123,81 +137,95 @@ def _heatmap(matrix, labels, out_path, title, value_label, vlim=None):
     plt.close(fig)
 
 
+def _pair_matrix(pairs, labels, value_col):
+    """Symmetric label x label matrix from a long (label_a, label_b) table. Pairs with a label
+    outside `labels` are skipped (main-only versions); pairs not in the table stay NaN."""
+    idx = {l: i for i, l in enumerate(labels)}
+    mat = np.full((len(labels), len(labels)), np.nan)
+    for a, b, v in zip(pairs["label_a"], pairs["label_b"], pairs[value_col]):
+        if a in idx and b in idx:
+            mat[idx[a], idx[b]] = mat[idx[b], idx[a]] = v
+    return mat
+
+
 def fig_cooccurrence():
     sent = pd.read_csv(RESULTS / "02_cooccurrence/gold_cooccurrence_sentence.csv")
-    labels = sorted(set(sent["label_a"]) | set(sent["label_b"]))
-    idx = {l: i for i, l in enumerate(labels)}
-    n = len(labels)
-
-    pmi_mat = np.full((n, n), np.nan)
-    for _, row in sent.iterrows():
-        i, j = idx[row["label_a"]], idx[row["label_b"]]
-        pmi_mat[i, j] = pmi_mat[j, i] = row["pmi"]
-    _heatmap(pmi_mat, labels, FIG_DIR / "cooccurrence_sentence_pmi.png",
-              "Sentence-level co-occurrence (PMI, parent-child pairs excluded)\n"
-              "red = co-occur more than chance, blue = less, pale yellow = excluded/never",
-              "PMI (log2)", vlim=3.5)
-
     rev = pd.read_csv(RESULTS / "02_cooccurrence/gold_cooccurrence_review.csv")
-    z_mat = np.full((n, n), np.nan)
-    for _, row in rev.iterrows():
-        i, j = idx[row["label_a"]], idx[row["label_b"]]
-        z_mat[i, j] = z_mat[j, i] = row["z_score"]
-    _heatmap(z_mat, labels, FIG_DIR / "cooccurrence_review_zscore.png",
-              "Review-level co-occurrence vs. length-stratified permutation null\n"
-              "red = co-occur across a review more than length alone predicts, blue = less",
-              "z-score", vlim=7)
+    labels_all = sorted(set(sent["label_a"]) | set(sent["label_b"]))
+    labels_main = [l for l in labels_all if l in MAIN_LABELS]
+    # same vlim in both versions, so a color means the same value in each
+    for selection, labels in [("all", labels_all), ("main", labels_main)]:
+        _heatmap(_pair_matrix(sent, labels, "pmi"), labels,
+                  FIG_DIR / f"cooccurrence_sentence_pmi-cats_{selection}.png",
+                  "Sentence-level co-occurrence (PMI, parent-child pairs excluded)\n"
+                  "red = co-occur more than chance, blue = less, pale yellow = excluded/never",
+                  "PMI (log2)", vlim=3.5, full_labels=selection == "main")
+        _heatmap(_pair_matrix(rev, labels, "z_score"), labels,
+                  FIG_DIR / f"cooccurrence_review_zscore-cats_{selection}.png",
+                  "Review-level co-occurrence vs. length-stratified permutation null\n"
+                  "red = co-occur across a review more than length alone predicts, blue = less",
+                  "z-score", vlim=7, full_labels=selection == "main")
 
 
 def fig_contiguity():
-    df = pd.read_csv(RESULTS / "03_contiguity/gold_contiguity_label_summary.csv").dropna(subset=["mean_clumpiness"])
-    df = df.sort_values("mean_clumpiness")
-    fig, ax = plt.subplots(figsize=(8, 6))
-    y = np.arange(len(df))
-    ax.barh(y, df["mean_clumpiness"], color=BLUE, height=0.7, zorder=3)
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("mean clumpiness index (0 = maximally scattered, 1 = single contiguous block)")
-    ax.set_title("Contiguity: do a category's sentences cluster together within a review?\n"
-                  "All labels shown test significantly more contiguous than random placement (p<0.05)",
-                  fontsize=10, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "contiguity_clumpiness.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "03_contiguity/gold_contiguity_label_summary.csv").dropna(subset=["mean_clumpiness"])
+    df_all = df_all.sort_values("mean_clumpiness")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4))
+        y = np.arange(len(df))
+        ax.barh(y, df["mean_clumpiness"], color=BLUE, height=0.7, zorder=3)
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("mean clumpiness index (0 = maximally scattered, 1 = single contiguous block)")
+        ax.set_title("Contiguity: do a category's sentences cluster together within a review?\n"
+                      "All labels shown test significantly more contiguous than random placement (p<0.05)",
+                      fontsize=10, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"contiguity_clumpiness-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_order_position():
-    df = pd.read_csv(RESULTS / "04_order/gold_order_position.csv").sort_values("mean_rel_position")
-    color_map = {"early": BLUE, "late": ORANGE, "none": GRAY_MUTED}
-    colors = df["direction"].map(color_map)
-    fig, ax = plt.subplots(figsize=(8, 7))
-    y = np.arange(len(df))
-    err_lo = df["mean_rel_position"] - df["ci_lo"]
-    err_hi = df["ci_hi"] - df["mean_rel_position"]
-    ax.errorbar(df["mean_rel_position"], y, xerr=[err_lo, err_hi], fmt="o",
-                color=INK_SECONDARY, ecolor=INK_SECONDARY, elinewidth=1, capsize=2,
-                markersize=0, zorder=3)
-    ax.scatter(df["mean_rel_position"], y, c=colors, s=60, zorder=4, edgecolor="white", linewidth=0.5)
-    ax.axvline(0.5, color=BASELINE, linewidth=1, linestyle="--")
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlim(0, 1)
-    ax.set_xlabel("mean relative position in review (0 = first sentence, 1 = last)")
-    ax.set_title("Where in the review each category tends to appear\n"
-                  "(95% bootstrap CI; dashed line = review center / no positional preference)",
-                  fontsize=10.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    legend_handles = [Patch(facecolor=BLUE, label="significantly early"),
-                       Patch(facecolor=ORANGE, label="significantly late"),
-                       Patch(facecolor=GRAY_MUTED, label="no significant preference")]
-    ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "order_position.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "04_order/gold_order_position.csv").sort_values("mean_rel_position")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        color_map = {"early": BLUE, "late": ORANGE, "none": GRAY_MUTED}
+        colors = df["direction"].map(color_map)
+        fig, ax = plt.subplots(figsize=(8, 7 if selection == "all" else 4.4))
+        y = np.arange(len(df))
+        err_lo = df["mean_rel_position"] - df["ci_lo"]
+        err_hi = df["ci_hi"] - df["mean_rel_position"]
+        ax.errorbar(df["mean_rel_position"], y, xerr=[err_lo, err_hi], fmt="o",
+                    color=INK_SECONDARY, ecolor=INK_SECONDARY, elinewidth=1, capsize=2,
+                    markersize=0, zorder=3)
+        ax.scatter(df["mean_rel_position"], y, c=colors, s=60, zorder=4, edgecolor="white", linewidth=0.5)
+        ax.axvline(0.5, color=BASELINE, linewidth=1, linestyle="--")
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("mean relative position in review (0 = first sentence, 1 = last)")
+        ax.set_title("Where in the review each category tends to appear\n"
+                      "(95% bootstrap CI; dashed line = review center / no positional preference)",
+                      fontsize=10.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        legend_handles = [Patch(facecolor=BLUE, label="significantly early"),
+                           Patch(facecolor=ORANGE, label="significantly late"),
+                           Patch(facecolor=GRAY_MUTED, label="no significant preference")]
+        ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"order_position-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_order_transitions():
@@ -562,87 +590,97 @@ def fig_variance_partitioning():
 
 
 def fig_temporal_category_trends():
-    df = pd.read_csv(RESULTS / "08_temporal/gold_temporal_category_trends.csv")
-    df = df.sort_values("adjusted_year_coef")
-    y = np.arange(len(df))
-    width = 0.35
+    df_all = pd.read_csv(RESULTS / "08_temporal/gold_temporal_category_trends.csv")
+    df_all = df_all.sort_values("adjusted_year_coef")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        y = np.arange(len(df))
+        width = 0.35
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    colors_raw = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["raw_year_coef"]]
-    colors_adj = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
-    ax.barh(y + width / 2, df["raw_year_coef"], height=width, color=colors_raw, alpha=0.45,
-            label="raw (year alone)", zorder=3)
-    ax.barh(y - width / 2, df["adjusted_year_coef"], height=width, color=colors_adj,
-            label="adjusted (year + platform)", zorder=3)
-    for i, q in enumerate(df["adjusted_q_bh"]):
-        if q < 0.05:
-            x = df["adjusted_year_coef"].iloc[i]
-            ax.text(x + (0.004 if x > 0 else -0.004), y[i] - width / 2, "*",
-                    ha="left" if x > 0 else "right", va="center", fontsize=11, fontweight="bold")
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("logistic regression coefficient per year (centered)")
-    ax.set_title("Category prevalence trend over time: raw vs. platform-adjusted\n"
-                  "(* survives platform adjustment at BH-adjusted q<0.05 -- faint bar = raw, solid = adjusted)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="raw (year alone)"),
-                        Patch(facecolor=GRAY_MUTED, label="adjusted (year + platform)")],
-              frameon=False, fontsize=8, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "temporal_category_trends.png", dpi=160)
-    plt.close(fig)
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4.4))
+        colors_raw = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["raw_year_coef"]]
+        colors_adj = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
+        ax.barh(y + width / 2, df["raw_year_coef"], height=width, color=colors_raw, alpha=0.45,
+                label="raw (year alone)", zorder=3)
+        ax.barh(y - width / 2, df["adjusted_year_coef"], height=width, color=colors_adj,
+                label="adjusted (year + platform)", zorder=3)
+        for i, q in enumerate(df["adjusted_q_bh"]):
+            if q < 0.05:
+                x = df["adjusted_year_coef"].iloc[i]
+                ax.text(x + (0.004 if x > 0 else -0.004), y[i] - width / 2, "*",
+                        ha="left" if x > 0 else "right", va="center", fontsize=11, fontweight="bold")
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("logistic regression coefficient per year (centered)")
+        ax.set_title("Category prevalence trend over time: raw vs. platform-adjusted\n"
+                      "(* survives platform adjustment at BH-adjusted q<0.05 -- faint bar = raw, solid = adjusted)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="raw (year alone)"),
+                            Patch(facecolor=GRAY_MUTED, label="adjusted (year + platform)")],
+                  frameon=False, fontsize=8, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"temporal_category_trends-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
-def _temporal_review_vs_sentence(csv_name, out_name, title_suffix):
-    df = pd.read_csv(RESULTS / csv_name).sort_values("adjusted_year_coef")
-    y = np.arange(len(df))
-    width = 0.35
+def _temporal_review_vs_sentence(csv_name, out_stem, title_suffix):
+    df_all = pd.read_csv(RESULTS / csv_name).sort_values("adjusted_year_coef")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        y = np.arange(len(df))
+        width = 0.35
 
-    fig, ax = plt.subplots(figsize=(8.5, 6))
-    colors_rev = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
-    colors_sent = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["sentence_adjusted_year_coef"]]
-    ax.barh(y + width / 2, df["adjusted_year_coef"], height=width, color=colors_rev, alpha=0.45,
-            label="review-level (>=1 sentence)", zorder=3)
-    ax.barh(y - width / 2, df["sentence_adjusted_year_coef"], height=width, color=colors_sent,
-            label="sentence-level (no length confound)", zorder=3)
-    for i in range(len(df)):
-        if df["adjusted_q_bh"].iloc[i] < 0.05:
-            x = df["adjusted_year_coef"].iloc[i]
-            ax.text(x + (0.003 if x > 0 else -0.003), y[i] + width / 2, "*",
-                    ha="left" if x > 0 else "right", va="center", fontsize=10, fontweight="bold")
-        if df["sentence_adjusted_q_bh"].iloc[i] < 0.05:
-            x = df["sentence_adjusted_year_coef"].iloc[i]
-            ax.text(x + (0.003 if x > 0 else -0.003), y[i] - width / 2, "*",
-                    ha="left" if x > 0 else "right", va="center", fontsize=10, fontweight="bold")
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("platform-adjusted logistic regression coefficient per year")
-    ax.set_title(f"Does the review-level trend survive at the sentence level? {title_suffix}\n"
-                  "(* q<0.05; faint = review-level, solid = sentence-level -- a review-level trend that\n"
-                  "flips sign or loses its star at the sentence level was mostly a length artifact)",
-                  fontsize=9, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="review-level (>=1 sentence)"),
-                        Patch(facecolor=GRAY_MUTED, label="sentence-level (no length confound)")],
-              frameon=False, fontsize=8, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / out_name, dpi=160)
-    plt.close(fig)
+        fig, ax = plt.subplots(figsize=(8.5, 6 if selection == "all" else 4.6))
+        colors_rev = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
+        colors_sent = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["sentence_adjusted_year_coef"]]
+        ax.barh(y + width / 2, df["adjusted_year_coef"], height=width, color=colors_rev, alpha=0.45,
+                label="review-level (>=1 sentence)", zorder=3)
+        ax.barh(y - width / 2, df["sentence_adjusted_year_coef"], height=width, color=colors_sent,
+                label="sentence-level (no length confound)", zorder=3)
+        for i in range(len(df)):
+            if df["adjusted_q_bh"].iloc[i] < 0.05:
+                x = df["adjusted_year_coef"].iloc[i]
+                ax.text(x + (0.003 if x > 0 else -0.003), y[i] + width / 2, "*",
+                        ha="left" if x > 0 else "right", va="center", fontsize=10, fontweight="bold")
+            if df["sentence_adjusted_q_bh"].iloc[i] < 0.05:
+                x = df["sentence_adjusted_year_coef"].iloc[i]
+                ax.text(x + (0.003 if x > 0 else -0.003), y[i] - width / 2, "*",
+                        ha="left" if x > 0 else "right", va="center", fontsize=10, fontweight="bold")
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("platform-adjusted logistic regression coefficient per year")
+        ax.set_title(f"Does the review-level trend survive at the sentence level? {title_suffix}\n"
+                      "(* q<0.05; faint = review-level, solid = sentence-level -- a review-level trend that\n"
+                      "flips sign or loses its star at the sentence level was mostly a length artifact)",
+                      fontsize=9, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="review-level (>=1 sentence)"),
+                            Patch(facecolor=GRAY_MUTED, label="sentence-level (no length confound)")],
+                  frameon=False, fontsize=8, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"{out_stem}-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_gold_temporal_review_vs_sentence():
     _temporal_review_vs_sentence("08_temporal/gold_temporal_category_trends.csv",
-                                  "gold_temporal_review_vs_sentence.png", "(gold)")
+                                  "gold_temporal_review_vs_sentence", "(gold)")
 
 
 def fig_silver_temporal_review_vs_sentence():
     _temporal_review_vs_sentence("08_temporal/silver_temporal_category_trends.csv",
-                                  "silver_temporal_review_vs_sentence.png", "(silver)")
+                                  "silver_temporal_review_vs_sentence", "(silver)")
 
 
 def fig_period_prevalence():
@@ -688,27 +726,32 @@ def fig_rating_length_over_time():
 
 
 def fig_rating_correlations():
-    df = pd.read_csv(RESULTS / "10_ratings/gold_rating_correlations.csv").sort_values("spearman_rho")
-    fig, ax = plt.subplots(figsize=(8, 6))
-    y = np.arange(len(df))
-    colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["spearman_rho"]]
-    ax.barh(y, df["spearman_rho"], color=colors, height=0.65, zorder=3)
-    for i, q in enumerate(df["q_value_bh"]):
-        if q < 0.05:
-            x = df["spearman_rho"].iloc[i]
-            ax.text(x + (0.01 if x > 0 else -0.01), i, "*", ha="left" if x > 0 else "right",
-                    va="center", fontsize=11, fontweight="bold")
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("Spearman correlation with rating")
-    ax.set_title("Which categories correlate with higher or lower ratings?\n(* q<0.05, BH-adjusted)",
-                  fontsize=10.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "rating_correlations.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "10_ratings/gold_rating_correlations.csv").sort_values("spearman_rho")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4))
+        y = np.arange(len(df))
+        colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["spearman_rho"]]
+        ax.barh(y, df["spearman_rho"], color=colors, height=0.65, zorder=3)
+        for i, q in enumerate(df["q_value_bh"]):
+            if q < 0.05:
+                x = df["spearman_rho"].iloc[i]
+                ax.text(x + (0.01 if x > 0 else -0.01), i, "*", ha="left" if x > 0 else "right",
+                        va="center", fontsize=11, fontweight="bold")
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("Spearman correlation with rating")
+        ax.set_title("Which categories correlate with higher or lower ratings?\n(* q<0.05, BH-adjusted)",
+                      fontsize=10.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"rating_correlations-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_rating_by_cluster():
@@ -768,106 +811,152 @@ gold-vs-silver replication comparisons). ---"""
 
 
 def fig_silver_occurrence_comparison():
-    df = pd.read_csv(RESULTS / "01_occurrence/silver_vs_gold_occurrence.csv").sort_values("sentence_prevalence_corrected")
-    fig, ax = plt.subplots(figsize=(8.5, 7))
-    y = np.arange(len(df))
-    width = 0.26
-    ax.barh(y - width, df["gold_sentence_prevalence"], height=width, color=GRAY_MUTED, label="gold (sentence-level)", zorder=3)
-    ax.barh(y, df["sentence_prevalence_raw"], height=width, color=BLUE_LIGHT, label="silver, raw", zorder=3)
-    ax.barh(y + width, df["sentence_prevalence_corrected"], height=width, color=BLUE, label="silver, Rogan-Gladen corrected", zorder=3)
-    err_lo = df["sentence_prevalence_corrected"] - df["ci_lo"]
-    err_hi = df["ci_hi"] - df["sentence_prevalence_corrected"]
-    ax.errorbar(df["sentence_prevalence_corrected"], y + width, xerr=[err_lo, err_hi], fmt="none",
-                ecolor=INK_SECONDARY, elinewidth=1, capsize=2, zorder=4)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("sentence-level prevalence")
-    ax.set_title("Occurrence replication: gold vs. silver, raw vs. Rogan-Gladen corrected\n"
-                  "(both silver bars are sentence-level, matching gold and the confusion matrix's own unit)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    ax.legend(frameon=False, fontsize=8.5, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_occurrence_comparison.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "01_occurrence/silver_vs_gold_occurrence.csv").sort_values("sentence_prevalence_corrected")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8.5, 7 if selection == "all" else 4.6))
+        y = np.arange(len(df))
+        width = 0.26
+        ax.barh(y - width, df["gold_sentence_prevalence"], height=width, color=GRAY_MUTED, label="gold (sentence-level)", zorder=3)
+        ax.barh(y, df["sentence_prevalence_raw"], height=width, color=BLUE_LIGHT, label="silver, raw", zorder=3)
+        ax.barh(y + width, df["sentence_prevalence_corrected"], height=width, color=BLUE, label="silver, Rogan-Gladen corrected", zorder=3)
+        err_lo = df["sentence_prevalence_corrected"] - df["ci_lo"]
+        err_hi = df["ci_hi"] - df["sentence_prevalence_corrected"]
+        ax.errorbar(df["sentence_prevalence_corrected"], y + width, xerr=[err_lo, err_hi], fmt="none",
+                    ecolor=INK_SECONDARY, elinewidth=1, capsize=2, zorder=4)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("sentence-level prevalence")
+        ax.set_title("Occurrence replication: gold vs. silver, raw vs. Rogan-Gladen corrected\n"
+                      "(both silver bars are sentence-level, matching gold and the confusion matrix's own unit)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(frameon=False, fontsize=8.5, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_occurrence_comparison-cats_{selection}.png", dpi=160)
+        plt.close(fig)
+
+
+def fig_silver_review_occurrence_comparison():
+    silver = pd.read_csv(RESULTS / "01_occurrence/silver_occurrence_review_level.csv")
+    gold = pd.read_csv(RESULTS / "01_occurrence/gold_occurrence.csv")[
+        ["label", "prevalence", "prevalence_ci_lo", "prevalence_ci_hi"]]
+    # inner join: silver has no model for gold's weakest sub-labels, same 16 labels as the sentence-level figure
+    df_all = silver.merge(gold, on="label").sort_values("review_prevalence_raw")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8.5, 7 if selection == "all" else 4.4))
+        y = np.arange(len(df))
+        width = 0.38
+        ax.barh(y - width / 2, df["prevalence"], height=width, color=GRAY_MUTED,
+                label="gold (95% bootstrap CI)", zorder=3)
+        ax.barh(y + width / 2, df["review_prevalence_raw"], height=width, color=BLUE,
+                label="silver, raw", zorder=3)
+        err_lo = df["prevalence"] - df["prevalence_ci_lo"]
+        err_hi = df["prevalence_ci_hi"] - df["prevalence"]
+        ax.errorbar(df["prevalence"], y - width / 2, xerr=[err_lo, err_hi], fmt="none",
+                    ecolor=INK_SECONDARY, elinewidth=1, capsize=2, zorder=4)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("review-level prevalence (share of reviews with ≥1 sentence of the category)")
+        ax.set_title("Occurrence replication at review level: gold vs. silver\n"
+                      "(silver raw only -- the sentence-level confusion matrix can't correct a review-level '≥1' statistic)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(frameon=False, fontsize=8.5, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_review_occurrence_comparison-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_silver_cooccurrence():
     sent = pd.read_csv(RESULTS / "02_cooccurrence/silver_cooccurrence_sentence.csv")
-    labels = sorted(set(sent["label_a"]) | set(sent["label_b"]))
-    idx = {l: i for i, l in enumerate(labels)}
-    n = len(labels)
-
-    pmi_mat = np.full((n, n), np.nan)
-    for _, row in sent.iterrows():
-        i, j = idx[row["label_a"]], idx[row["label_b"]]
-        pmi_mat[i, j] = pmi_mat[j, i] = row["pmi"]
-    _heatmap(pmi_mat, labels, FIG_DIR / "silver_cooccurrence_sentence_pmi.png",
-              "Sentence-level co-occurrence, silver (raw), 5.2M sentences\n"
-              "red = co-occur more than chance, blue = less, pale yellow = excluded/never",
-              "PMI (log2)", vlim=3.5)
-
     rev = pd.read_csv(RESULTS / "02_cooccurrence/silver_cooccurrence_review.csv")
-    z_mat = np.full((n, n), np.nan)
-    for _, row in rev.iterrows():
-        i, j = idx[row["label_a"]], idx[row["label_b"]]
-        z_mat[i, j] = z_mat[j, i] = row["z_score"]
-    _heatmap(z_mat, labels, FIG_DIR / "silver_cooccurrence_review_zscore.png",
-              "Review-level co-occurrence vs. length-stratified permutation null, silver (raw)\n"
-              "red = co-occur across a review more than length alone predicts, blue = less",
-              "z-score", vlim=120)
+    labels_all = sorted(set(sent["label_a"]) | set(sent["label_b"]))
+    labels_main = [l for l in labels_all if l in MAIN_LABELS]
+    for selection, labels in [("all", labels_all), ("main", labels_main)]:
+        _heatmap(_pair_matrix(sent, labels, "pmi"), labels,
+                  FIG_DIR / f"silver_cooccurrence_sentence_pmi-cats_{selection}.png",
+                  "Sentence-level co-occurrence, silver (raw), 5.2M sentences\n"
+                  "red = co-occur more than chance, blue = less, pale yellow = excluded/never",
+                  "PMI (log2)", vlim=3.5, full_labels=selection == "main")
+        _heatmap(_pair_matrix(rev, labels, "z_score"), labels,
+                  FIG_DIR / f"silver_cooccurrence_review_zscore-cats_{selection}.png",
+                  "Review-level co-occurrence vs. length-stratified permutation null, silver (raw)\n"
+                  "red = co-occur across a review more than length alone predicts, blue = less",
+                  "z-score", vlim=120, full_labels=selection == "main")
 
 
 def fig_silver_contiguity():
-    df = pd.read_csv(RESULTS / "03_contiguity/silver_contiguity_label_summary.csv").dropna(subset=["mean_clumpiness"])
-    df = df.sort_values("mean_clumpiness")
-    fig, ax = plt.subplots(figsize=(8, 6))
-    y = np.arange(len(df))
-    ax.barh(y, df["mean_clumpiness"], color=BLUE, height=0.7, zorder=3)
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("mean clumpiness index (0 = maximally scattered, 1 = single contiguous block)")
-    ax.set_title("Contiguity, silver (raw), 466,976 reviews\n"
-                  "All labels significantly more contiguous than random (n this large: p-values aren't informative, see text)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_contiguity_clumpiness.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "03_contiguity/silver_contiguity_label_summary.csv").dropna(subset=["mean_clumpiness"])
+    df_all = df_all.sort_values("mean_clumpiness")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4))
+        y = np.arange(len(df))
+        ax.barh(y, df["mean_clumpiness"], color=BLUE, height=0.7, zorder=3)
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("mean clumpiness index (0 = maximally scattered, 1 = single contiguous block)")
+        ax.set_title("Contiguity, silver (raw), 466,976 reviews\n"
+                      "All labels significantly more contiguous than random (n this large: p-values aren't informative, see text)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_contiguity_clumpiness-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_silver_order_position():
-    df = pd.read_csv(RESULTS / "04_order/silver_order_position.csv").sort_values("mean_rel_position")
-    color_map = {"early": BLUE, "late": ORANGE, "none": GRAY_MUTED}
-    colors = df["direction"].map(color_map)
-    fig, ax = plt.subplots(figsize=(8, 7))
-    y = np.arange(len(df))
-    err_lo = df["mean_rel_position"] - df["ci_lo"]
-    err_hi = df["ci_hi"] - df["mean_rel_position"]
-    ax.errorbar(df["mean_rel_position"], y, xerr=[err_lo, err_hi], fmt="o",
-                color=INK_SECONDARY, ecolor=INK_SECONDARY, elinewidth=1, capsize=2,
-                markersize=0, zorder=3)
-    ax.scatter(df["mean_rel_position"], y, c=colors, s=60, zorder=4, edgecolor="white", linewidth=0.5)
-    ax.axvline(0.5, color=BASELINE, linewidth=1, linestyle="--")
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlim(0, 1)
-    ax.set_xlabel("mean relative position in review (0 = first sentence, 1 = last)")
-    ax.set_title("Where in the review each category tends to appear, silver (raw)\n"
-                  "(95% CI via analytic normal approximation -- n too large for resampling to add anything)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    legend_handles = [Patch(facecolor=BLUE, label="significantly early"),
-                       Patch(facecolor=ORANGE, label="significantly late"),
-                       Patch(facecolor=GRAY_MUTED, label="no significant preference")]
-    ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_order_position.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "04_order/silver_order_position.csv").sort_values("mean_rel_position")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        color_map = {"early": BLUE, "late": ORANGE, "none": GRAY_MUTED}
+        colors = df["direction"].map(color_map)
+        fig, ax = plt.subplots(figsize=(8, 7 if selection == "all" else 4.4))
+        y = np.arange(len(df))
+        err_lo = df["mean_rel_position"] - df["ci_lo"]
+        err_hi = df["ci_hi"] - df["mean_rel_position"]
+        ax.errorbar(df["mean_rel_position"], y, xerr=[err_lo, err_hi], fmt="o",
+                    color=INK_SECONDARY, ecolor=INK_SECONDARY, elinewidth=1, capsize=2,
+                    markersize=0, zorder=3)
+        ax.scatter(df["mean_rel_position"], y, c=colors, s=60, zorder=4, edgecolor="white", linewidth=0.5)
+        ax.axvline(0.5, color=BASELINE, linewidth=1, linestyle="--")
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=12)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=12)
+        ax.set_xlim(0, 1)
+        ax.set_xlabel("mean relative position in review (0 = first sentence, 1 = last)", fontsize=12)
+        # full labels widen the y-axis, so the main-only title needs an extra line break to fit
+        ci_note_break = " " if selection == "all" else "\n"
+        ax.set_title("Where in the review each category tends to appear, silver (raw)\n"
+                      f"(95% CI via analytic normal approximation --{ci_note_break}n too large for resampling to add anything)",
+                      fontsize=12, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        legend_handles = [Patch(facecolor=BLUE, label="significantly early"),
+                           Patch(facecolor=ORANGE, label="significantly late"),
+                           Patch(facecolor=GRAY_MUTED, label="no significant preference")]
+        ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=8.5)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_order_position-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_silver_order_transitions():
@@ -997,53 +1086,67 @@ def fig_silver_typology_by_period():
 
 
 def fig_silver_temporal_category_trends():
-    df = pd.read_csv(RESULTS / "08_temporal/silver_temporal_category_trends.csv")
-    df = df.sort_values("adjusted_year_coef")
-    y = np.arange(len(df))
-    width = 0.35
+    df_all = pd.read_csv(RESULTS / "08_temporal/silver_temporal_category_trends.csv")
+    df_all = df_all.sort_values("adjusted_year_coef")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        y = np.arange(len(df))
+        width = 0.35
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    colors_raw = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["raw_year_coef"]]
-    colors_adj = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
-    ax.barh(y + width / 2, df["raw_year_coef"], height=width, color=colors_raw, alpha=0.45,
-            label="raw (year alone)", zorder=3)
-    ax.barh(y - width / 2, df["adjusted_year_coef"], height=width, color=colors_adj,
-            label="adjusted (year + platform)", zorder=3)
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("logistic regression coefficient per year (centered)")
-    ax.set_title("Category prevalence trend over time, silver: raw vs. platform-adjusted\n"
-                  "(all coefficients shown are significant at q<0.05 -- n this large makes that a low bar, see text)",
-                  fontsize=9, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="raw (year alone)"),
-                        Patch(facecolor=GRAY_MUTED, label="adjusted (year + platform)")],
-              frameon=False, fontsize=8, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_temporal_category_trends.png", dpi=160)
-    plt.close(fig)
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4.4))
+        colors_raw = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["raw_year_coef"]]
+        colors_adj = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["adjusted_year_coef"]]
+        ax.barh(y + width / 2, df["raw_year_coef"], height=width, color=colors_raw, alpha=0.45,
+                label="raw (year alone)", zorder=3)
+        ax.barh(y - width / 2, df["adjusted_year_coef"], height=width, color=colors_adj,
+                label="adjusted (year + platform)", zorder=3)
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+            ax.set_xlabel("logistic regression coefficient per year (centered)")
+            ax.set_title("Category prevalence trend over time, silver: raw vs. platform-adjusted\n"
+                          "(all coefficients shown are significant at q<0.05 -- n this large makes that a low bar, see text)",
+                          fontsize=9, loc="left")
+        else:
+            ax.set_yticks(y, df["label"], fontsize=12)
+            ax.set_xlabel("logistic regression coefficient per year (centered)", fontsize=12)
+            ax.set_title("Category prevalence trend over time, silver: raw vs. platform-adjusted\n"
+                          "(all coefficients shown are significant at q<0.05)",
+                          fontsize=11, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(handles=[Patch(facecolor=GRAY_MUTED, alpha=0.45, label="raw (year alone)"),
+                            Patch(facecolor=GRAY_MUTED, label="adjusted (year + platform)")],
+                  frameon=False, fontsize=8, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_temporal_category_trends-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_silver_rating_correlations():
-    df = pd.read_csv(RESULTS / "10_ratings/silver_rating_correlations.csv").sort_values("spearman_rho")
-    fig, ax = plt.subplots(figsize=(8, 6))
-    y = np.arange(len(df))
-    colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["spearman_rho"]]
-    ax.barh(y, df["spearman_rho"], color=colors, height=0.65, zorder=3)
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
-    ax.set_xlabel("Spearman correlation with rating")
-    ax.set_title("Which categories correlate with higher or lower ratings? Silver (raw)\n"
-                  "(all shown are significant at q<0.05 given n~437K)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_rating_correlations.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "10_ratings/silver_rating_correlations.csv").sort_values("spearman_rho")
+    df_main = df_all[df_all.label.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4))
+        y = np.arange(len(df))
+        colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["spearman_rho"]]
+        ax.barh(y, df["spearman_rho"], color=colors, height=0.65, zorder=3)
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["label"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["label"], fontsize=11)
+        ax.set_xlabel("Spearman correlation with rating")
+        ax.set_title("Which categories correlate with higher or lower ratings? Silver (raw)\n"
+                      "(all shown are significant at q<0.05 given n~437K)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_rating_correlations-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_silver_rating_by_cluster():
@@ -1174,26 +1277,31 @@ def fig_length_share_correlation():
     gold = pd.read_csv(RESULTS / "09_length_dimension/gold_length_share_correlation.csv").set_index("label")
     silver = pd.read_csv(RESULTS / "09_length_dimension/silver_length_share_correlation.csv").set_index("label")
     common = [l for l in silver.index if l in gold.index]  # silver's TESTED_LABELS subset of gold's
-    order = gold.loc[common, "spearman_rho"].sort_values().index
-    y = np.arange(len(order))
-    width = 0.32
+    order_all = gold.loc[common, "spearman_rho"].sort_values().index
+    order_main = [l for l in order_all if l in MAIN_LABELS]
+    for selection, order in [("all", order_all), ("main", order_main)]:
+        y = np.arange(len(order))
+        width = 0.32
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.barh(y + width / 2, gold.loc[order, "spearman_rho"], height=width, color=GRAY_MUTED, label="gold", zorder=3)
-    ax.barh(y - width / 2, silver.loc[order, "spearman_rho"], height=width, color=BLUE, label="silver", zorder=3)
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, [short(l) for l in order], fontsize=9)
-    ax.set_xlabel("Spearman rho: category's share of a review vs. review length (num_sentences)")
-    ax.set_title("Do long and short reviews allocate their sentences differently?\n"
-                  "(negative = category's share shrinks in longer reviews, positive = grows)",
-                  fontsize=9.5, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    ax.legend(frameon=False, fontsize=9, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "length_share_correlation.png", dpi=160)
-    plt.close(fig)
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4.4))
+        ax.barh(y + width / 2, gold.loc[order, "spearman_rho"], height=width, color=GRAY_MUTED, label="gold", zorder=3)
+        ax.barh(y - width / 2, silver.loc[order, "spearman_rho"], height=width, color=BLUE, label="silver", zorder=3)
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, [short(l) for l in order], fontsize=9)
+        else:
+            ax.set_yticks(y, order, fontsize=11)
+        ax.set_xlabel("Spearman rho: category's share of a review vs. review length (num_sentences)")
+        ax.set_title("Do long and short reviews allocate their sentences differently?\n"
+                      "(negative = category's share shrinks in longer reviews, positive = grows)",
+                      fontsize=9.5, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        ax.legend(frameon=False, fontsize=9, loc="lower right")
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"length_share_correlation-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_length_quartile_by_cluster():
@@ -1289,29 +1397,34 @@ def fig_prolific_vs_occasional_platform():
 
 
 def fig_prolific_early_vs_late():
-    df = pd.read_csv(RESULTS / "15_prolific_vs_occasional/silver_prolific_early_vs_late_paired_composition.csv").sort_values("mean_paired_diff")
-    y = np.arange(len(df))
-    colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["mean_paired_diff"]]
-    fig, ax = plt.subplots(figsize=(8, 6))
-    ax.barh(y, df["mean_paired_diff"], color=colors, zorder=3)
-    for i, q in enumerate(df["q_bh"]):
-        if q < 0.05:
-            v = df["mean_paired_diff"].iloc[i]
-            ax.text(v + (0.001 if v > 0 else -0.001), y[i], "*", ha="left" if v > 0 else "right",
-                    va="center", fontsize=11, fontweight="bold")
-    ax.axvline(0, color=BASELINE, linewidth=1)
-    ax.set_yticks(y, df["measure"].map(short), fontsize=8.5)
-    ax.set_xlabel("mean paired difference (late reviews - early reviews), same reviewer")
-    ax.set_title("Do a prolific reviewer's own reviews change from their first 3 to their most recent 3?\n"
-                 "(* q<0.05, Wilcoxon signed-rank, n=5,735 reviewers -- entangled with the corpus-wide\n"
-                 "temporal trend and length growth, see text)",
-                 fontsize=9, loc="left")
-    ax.spines[["top", "right", "left"]].set_visible(False)
-    ax.grid(axis="x", linewidth=0.6)
-    ax.grid(axis="y", visible=False)
-    fig.tight_layout()
-    fig.savefig(FIG_DIR / "silver_prolific_early_vs_late.png", dpi=160)
-    plt.close(fig)
+    df_all = pd.read_csv(RESULTS / "15_prolific_vs_occasional/silver_prolific_early_vs_late_paired_composition.csv").sort_values("mean_paired_diff")
+    df_main = df_all[df_all.measure.isin(MAIN_LABELS)]
+    for selection, df in [("all", df_all), ("main", df_main)]:
+        y = np.arange(len(df))
+        colors = [DIVERGING_POS if v > 0 else DIVERGING_NEG for v in df["mean_paired_diff"]]
+        fig, ax = plt.subplots(figsize=(8, 6 if selection == "all" else 4.2))
+        ax.barh(y, df["mean_paired_diff"], color=colors, zorder=3)
+        for i, q in enumerate(df["q_bh"]):
+            if q < 0.05:
+                v = df["mean_paired_diff"].iloc[i]
+                ax.text(v + (0.001 if v > 0 else -0.001), y[i], "*", ha="left" if v > 0 else "right",
+                        va="center", fontsize=11, fontweight="bold")
+        ax.axvline(0, color=BASELINE, linewidth=1)
+        if selection == "all":
+            ax.set_yticks(y, df["measure"].map(short), fontsize=8.5)
+        else:
+            ax.set_yticks(y, df["measure"], fontsize=11)
+        ax.set_xlabel("mean paired difference (late reviews - early reviews), same reviewer")
+        ax.set_title("Do a prolific reviewer's own reviews change from their first 3 to their most recent 3?\n"
+                     "(* q<0.05, Wilcoxon signed-rank, n=5,735 reviewers -- entangled with the corpus-wide\n"
+                     "temporal trend and length growth, see text)",
+                     fontsize=9, loc="left")
+        ax.spines[["top", "right", "left"]].set_visible(False)
+        ax.grid(axis="x", linewidth=0.6)
+        ax.grid(axis="y", visible=False)
+        fig.tight_layout()
+        fig.savefig(FIG_DIR / f"silver_prolific_early_vs_late-cats_{selection}.png", dpi=160)
+        plt.close(fig)
 
 
 def fig_fame_mediation():
@@ -2073,71 +2186,72 @@ if __name__ == "__main__":
     fig_cooccurrence()
     fig_contiguity()
     fig_order_position()
-    fig_order_transitions()
-    fig_typology_k_selection()
-    fig_typology_cluster_profile()
-    fig_typology_pca_scatter()
-    fig_gold_sequence_cluster_profile()
-    fig_typology_crosstab()
-    fig_genre_prevalence()
-    fig_platform_prevalence()
-    fig_platform_length_confound()
-    fig_litfic_rating()
-    fig_typology_by_genre()
-    fig_typology_by_platform()
-    fig_similarity_tests()
-    fig_variance_partitioning()
+    # fig_order_transitions()
+    # fig_typology_k_selection()
+    # fig_typology_cluster_profile()
+    # fig_typology_pca_scatter()
+    # fig_gold_sequence_cluster_profile()
+    # fig_typology_crosstab()
+    # fig_genre_prevalence()
+    # fig_platform_prevalence()
+    # fig_platform_length_confound()
+    # fig_litfic_rating()
+    # fig_typology_by_genre()
+    # fig_typology_by_platform()
+    # fig_similarity_tests()
+    # fig_variance_partitioning()
     fig_temporal_category_trends()
     fig_gold_temporal_review_vs_sentence()
-    fig_period_prevalence()
-    fig_typology_by_period()
-    fig_rating_length_over_time()
+    # fig_period_prevalence()
+    # fig_typology_by_period()
+    # fig_rating_length_over_time()
     fig_rating_correlations()
-    fig_rating_by_cluster()
-    fig_rating_ordinal_model()
+    # fig_rating_by_cluster()
+    # fig_rating_ordinal_model()
     fig_silver_occurrence_comparison()
+    fig_silver_review_occurrence_comparison()
     fig_silver_cooccurrence()
     fig_silver_contiguity()
     fig_silver_order_position()
-    fig_silver_order_transitions()
-    fig_silver_typology_k_selection()
-    fig_silver_typology_cluster_profile()
-    fig_silver_sequence_cluster_profile()
-    fig_silver_typology_crosstab()
-    fig_silver_genre_prevalence()
-    fig_silver_platform_prevalence()
-    fig_silver_typology_by_genre()
-    fig_silver_typology_by_platform()
-    fig_silver_typology_by_period()
+    # fig_silver_order_transitions()
+    # fig_silver_typology_k_selection()
+    # fig_silver_typology_cluster_profile()
+    # fig_silver_sequence_cluster_profile()
+    # fig_silver_typology_crosstab()
+    # fig_silver_genre_prevalence()
+    # fig_silver_platform_prevalence()
+    # fig_silver_typology_by_genre()
+    # fig_silver_typology_by_platform()
+    # fig_silver_typology_by_period()
     fig_silver_temporal_category_trends()
     fig_silver_temporal_review_vs_sentence()
     fig_silver_rating_correlations()
-    fig_silver_rating_by_cluster()
-    fig_gold_vs_silver_litfic_rating()
-    fig_gold_vs_silver_ordinal_model()
-    fig_gold_vs_silver_similarity()
+    # fig_silver_rating_by_cluster()
+    # fig_gold_vs_silver_litfic_rating()
+    # fig_gold_vs_silver_ordinal_model()
+    # fig_gold_vs_silver_similarity()
     fig_length_share_correlation()
-    fig_length_quartile_by_cluster()
-    fig_density_specificity_by_cluster()
-    fig_prolific_reviewer_tendency()
-    fig_reviewer_similarity_ranking()
-    fig_imputed_correction_scatter()
-    fig_prolific_vs_occasional_platform()
+    # fig_length_quartile_by_cluster()
+    # fig_density_specificity_by_cluster()
+    # fig_prolific_reviewer_tendency()
+    # fig_reviewer_similarity_ranking()
+    # fig_imputed_correction_scatter()
+    # fig_prolific_vs_occasional_platform()
     fig_prolific_early_vs_late()
-    fig_bayesian_fame_coefficients()
-    fig_fame_mediation()
-    fig_fame_by_genre()
-    fig_content_subs_by_fame_genre()
-    fig_review_contiguity()
-    fig_pairwise_precedence()
-    fig_contiguity_zones()
-    fig_zone_discovery()
-    fig_gold_vs_silver_review_contiguity()
-    fig_gold_vs_silver_zones()
-    fig_contiguity_as_trait()
-    fig_contiguity_by_genre_platform()
-    fig_reviewer_organization_typology()
-    fig_author_brand_by_genre()
+    # fig_bayesian_fame_coefficients()
+    # fig_fame_mediation()
+    # fig_fame_by_genre()
+    # fig_content_subs_by_fame_genre()
+    # fig_review_contiguity()
+    # fig_pairwise_precedence()
+    # fig_contiguity_zones()
+    # fig_zone_discovery()
+    # fig_gold_vs_silver_review_contiguity()
+    # fig_gold_vs_silver_zones()
+    # fig_contiguity_as_trait()
+    # fig_contiguity_by_genre_platform()
+    # fig_reviewer_organization_typology()
+    # fig_author_brand_by_genre()
     print(f"wrote figures to {FIG_DIR}")
     for p in sorted(FIG_DIR.glob("*.png")):
         print(" ", p.name)

@@ -544,7 +544,7 @@ review two sentences are adjacent most of the time by luck. Only 11 of
 those 89 are significant. The fix is to compare each review against
 <em>its own</em> baseline: <strong>excess over chance = observed −
 null</strong>.</p>
-<table style="width:100%;">
+<table style="width:99%;">
 <colgroup>
 <col style="width: 16%" />
 <col style="width: 16%" />
@@ -1094,7 +1094,7 @@ alt="Cluster profile heatmap" />
 href="../results/05_typology/gold_typology_cluster_profile.csv">results/05_typology/gold_typology_cluster_profile.csv</a>;
 representative opening sentences for each: <a
 href="../results/05_typology/gold_typology_representative_reviews.csv">results/05_typology/gold_typology_representative_reviews.csv</a>):</p>
-<table style="width:100%;">
+<table style="width:99%;">
 <colgroup>
 <col style="width: 16%" />
 <col style="width: 16%" />
@@ -1432,7 +1432,7 @@ to Phase C, where the silver set’s cell sizes actually support them.</p>
 </tr>
 </tbody>
 </table>
-<table style="width:100%;">
+<table style="width:99%;">
 <colgroup>
 <col style="width: 14%" />
 <col style="width: 14%" />
@@ -1669,12 +1669,15 @@ explanation there. Full tables: <a
 href="../results/07_book_author_similarity/gold_author_similarity_test.csv">results/07_book_author_similarity/gold_author_similarity_test.csv</a>,
 <a
 href="../results/07_book_author_similarity/gold_author_similarity_per_author.csv">results/07_book_author_similarity/gold_author_similarity_per_author.csv</a>.</p>
-<p><strong>Reviewer: yes, the strongest of the three.</strong> 51
-reviewers with ≥2 reviews, excluding <code>platform_1</code> (119
-reviews, 102 pairs) — same-reviewer pairs average 0.800 similarity
-vs. 0.730 baseline (z=3.10, p=0.002), the largest gap of any of the
-three tests. People who review more than once tend to write the same
-<em>kind</em> of review each time. Full tables: <a
+<p><strong>Reviewer: yes, the strongest of the three.</strong> 50
+reviewers with ≥2 reviews, excluding <code>platform_1</code> (117
+reviews, 101 pairs) — same-reviewer pairs average 0.798 similarity
+vs. 0.727 baseline (z=3.34, p=0.001), the largest gap of any of the
+three tests. <em>(Updated 2026-10-22: reviewers are now keyed on
+platform + <code>user_id</code>, since ids are generated per platform;
+one gold id spanned two platforms. See Phase C §0.)</em> People who
+review more than once tend to write the same <em>kind</em> of review
+each time. Full tables: <a
 href="../results/07_book_author_similarity/gold_reviewer_similarity_test.csv">results/07_book_author_similarity/gold_reviewer_similarity_test.csv</a>,
 <a
 href="../results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv">results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv</a>.</p>
@@ -1691,12 +1694,16 @@ distance matrix explained by that grouping, each factor tested
 independently on its own natural subset — a simplification of a full
 joint model, flagged below): <strong>reviewer (R²=0.69) &gt; book
 (R²=0.56) &gt; author (R²=0.36) &gt; platform (R²=0.21) &gt; genre
-(R²=0.03)</strong>, all significant at p≤0.003. Read together with the
-pairwise tests above, this directly answers your original question:
-<strong>similarity is more about who writes the review than which book
-or author it’s about</strong> — reviewer identity explains more of a
-review’s composition than book identity does, and book explains more
-than author does.</p>
+(R²=0.03)</strong>, all significant at p≤0.003. <em>(The joint version,
+with reviewer and book in one model at silver scale, is Phase C §15:
+reviewer still dominates for length and the
+<code>Content</code>/<code>Reader_response</code> balance, while book
+and author matter as much or more for <code>Other_works</code> and
+rating.)</em> Read together with the pairwise tests above, this directly
+answers your original question: <strong>similarity is more about who
+writes the review than which book or author it’s about</strong> —
+reviewer identity explains more of a review’s composition than book
+identity does, and book explains more than author does.</p>
 <p>The author row needs an explicit caveat: its R²=0.36 looks
 substantial, but it directly contradicts the pairwise different-book
 test (§7 above, not significant). The reason is that the PERMANOVA
@@ -2059,7 +2066,7 @@ consistent with the raw correlation above. Full table: <a
 href="../results/10_ratings/gold_rating_ordinal_model.csv">results/10_ratings/gold_rating_ordinal_model.csv</a>.</p>
 <h2 id="synthesis-an-emerging-review-arc">11. Synthesis: an emerging
 review “arc”</h2>
-<p><em>↔︎ <a href="report_phase_c.html#synthesis">Phase C: §15.
+<p><em>↔︎ <a href="report_phase_c.html#synthesis">Phase C: §16.
 Synthesis</a></em></p>
 <p>Putting §2–5 together (§8’s temporal and §10’s rating findings are
 folded in at the end):</p>
@@ -2132,7 +2139,7 @@ full point lower, independent of composition) sits outside this arc
 entirely — a separate axis this analysis hasn’t fully explained.</li>
 </ol>
 <h2 id="scope-and-caveats">12. Scope and caveats</h2>
-<p><em>↔︎ <a href="report_phase_c.html#scope-and-caveats">Phase C: §16.
+<p><em>↔︎ <a href="report_phase_c.html#scope-and-caveats">Phase C: §17.
 Scope and caveats</a></em></p>
 <ul>
 <li><strong>Gold set only (1,152 reviews).</strong> These are real

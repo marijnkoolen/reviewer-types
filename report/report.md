@@ -315,13 +315,13 @@ Are reviews of the same book more similar to each other than random review pairs
 
 **Author (different books): no.** 122 authors reviewed across ≥2 distinct works (492 reviews, 6,933 eligible different-book pairs) — same-author pairs average 0.629 similarity, *below* the 0.647 random-pairs baseline (z=−1.39, p=0.918). Once you actually hold "different book" constant, there's no evidence that an author's books get reviewed similarly to each other. This is the one place the pairwise test and the variance-partitioning test below disagree — see the explanation there. Full tables: [results/07_book_author_similarity/gold_author_similarity_test.csv](../results/07_book_author_similarity/gold_author_similarity_test.csv), [results/07_book_author_similarity/gold_author_similarity_per_author.csv](../results/07_book_author_similarity/gold_author_similarity_per_author.csv).
 
-**Reviewer: yes, the strongest of the three.** 51 reviewers with ≥2 reviews, excluding `platform_1` (119 reviews, 102 pairs) — same-reviewer pairs average 0.800 similarity vs. 0.730 baseline (z=3.10, p=0.002), the largest gap of any of the three tests. People who review more than once tend to write the same *kind* of review each time. Full tables: [results/07_book_author_similarity/gold_reviewer_similarity_test.csv](../results/07_book_author_similarity/gold_reviewer_similarity_test.csv), [results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv](../results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv).
+**Reviewer: yes, the strongest of the three.** 50 reviewers with ≥2 reviews, excluding `platform_1` (117 reviews, 101 pairs) — same-reviewer pairs average 0.798 similarity vs. 0.727 baseline (z=3.34, p=0.001), the largest gap of any of the three tests. *(Updated 2026-10-22: reviewers are now keyed on platform + `user_id`, since ids are generated per platform; one gold id spanned two platforms. See Phase C §0.)* People who review more than once tend to write the same *kind* of review each time. Full tables: [results/07_book_author_similarity/gold_reviewer_similarity_test.csv](../results/07_book_author_similarity/gold_reviewer_similarity_test.csv), [results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv](../results/07_book_author_similarity/gold_reviewer_similarity_per_reviewer.csv).
 
 ### Which explains more: reviewer, book, or author?
 
 ![Variance partitioning by factor](figures/variance_partitioning.png)
 
-A comparative one-way PERMANOVA (R² = share of variance in the distance matrix explained by that grouping, each factor tested independently on its own natural subset — a simplification of a full joint model, flagged below): **reviewer (R²=0.69) > book (R²=0.56) > author (R²=0.36) > platform (R²=0.21) > genre (R²=0.03)**, all significant at p≤0.003. Read together with the pairwise tests above, this directly answers your original question: **similarity is more about who writes the review than which book or author it's about** — reviewer identity explains more of a review's composition than book identity does, and book explains more than author does.
+A comparative one-way PERMANOVA (R² = share of variance in the distance matrix explained by that grouping, each factor tested independently on its own natural subset — a simplification of a full joint model, flagged below): **reviewer (R²=0.69) > book (R²=0.56) > author (R²=0.36) > platform (R²=0.21) > genre (R²=0.03)**, all significant at p≤0.003. *(The joint version, with reviewer and book in one model at silver scale, is Phase C §15: reviewer still dominates for length and the `Content`/`Reader_response` balance, while book and author matter as much or more for `Other_works` and rating.)* Read together with the pairwise tests above, this directly answers your original question: **similarity is more about who writes the review than which book or author it's about** — reviewer identity explains more of a review's composition than book identity does, and book explains more than author does.
 
 The author row needs an explicit caveat: its R²=0.36 looks substantial, but it directly contradicts the pairwise different-book test (§7 above, not significant). The reason is that the PERMANOVA doesn't hold genre constant, and **76% of multi-review authors write in only one genre** in this corpus (121 of 159) — so "author" here is largely standing in for "genre, sliced more finely," not a distinct authorial-voice effect. The more surgical pairwise test, which explicitly restricts to different-book pairs and so isolates authorship from genre, is the one to trust: it found no consistency. Full table: [results/07_book_author_similarity/gold_variance_partitioning.csv](../results/07_book_author_similarity/gold_variance_partitioning.csv).
 
@@ -403,7 +403,7 @@ An ordinal logistic regression of rating (1–5) on the seven main-category prop
 
 ## 11. Synthesis: an emerging review "arc"
 
-*↔ [Phase C: §15. Synthesis](report_phase_c.md#synthesis)*
+*↔ [Phase C: §16. Synthesis](report_phase_c.md#synthesis)*
 
 Putting §2–5 together (§8's temporal and §10's rating findings are folded in at the end):
 
@@ -424,7 +424,7 @@ That "zone" is **positional, not a merged passage**: the union-clumpiness test i
 
 ## 12. Scope and caveats
 
-*↔ [Phase C: §16. Scope and caveats](report_phase_c.md#scope-and-caveats)*
+*↔ [Phase C: §17. Scope and caveats](report_phase_c.md#scope-and-caveats)*
 
 - **Gold set only (1,152 reviews).** These are real findings, not provisional ones — but they're small-N relative to the 670K-review silver set, and several sub-category findings above (`Content--Quote`, `Style--Structure`, `Style--Context`) rest on a few dozen reviews or fewer. Treat those as suggestive rather than conclusive until Phase C replicates them at scale.
 - **`num_sentences` correction.** The file's own `num_sentences` metadata field disagreed with the actual number of annotated sentence rows for 206/1,152 reviews (off by 1–14 sentences, both directions) — every position- and length-dependent computation here (proportions, relative position, contiguity's n) uses the actual annotated sentence count, not the metadata field. See `src/common/data_prep.py`.

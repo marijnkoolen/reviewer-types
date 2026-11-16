@@ -78,7 +78,9 @@ def main():
         reviews[rid] = {
             "review_id": rid,
             "source_id": first["source_id"],
-            "user_id": first["user_id"],
+            # user_id is generated per platform (source_id): qualify it so the same
+            # string on two platforms is not merged into one reviewer.
+            "user_id": f'{first["source_id"]}:{first["user_id"]}',
             "author_id": first.get("author_id", ""),
             "work_id": first["work_id"],
             "nur_genre": first["nur_genre"],
