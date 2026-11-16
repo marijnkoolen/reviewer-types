@@ -20,3 +20,17 @@ Answered items move to `docs/USER_ACTIONS_resolved.md`.
 - **Default if unanswered:** Italian and Russian stay at the 300-review pilots, and there is no agent-vs-human agreement for them.
 - **Blocks:** the Italian and Russian agent-vs-human comparison, and scaling them to the rest of their pools (1,500 reviews each).
 - **Response:**
+
+### UA-031 Same books across languages, or targeted samples per language? (2026-11-16, from the label-share differences)
+- **Action:** **Decide** the direction, and answer one factual question. The two directions answer different questions:
+  - Same books in all languages (matched): separates "what is reviewed" from "how people review in this language". Needed for any cross-language comparison.
+  - Targeted samples per language (recent books, more genre fiction): gives each language a pool like what is actually reviewed in it now. This is what a classifier for that language should be trained and checked on.
+  - The genre check (plan, Phase 4 Italian and Russian) shows both matter: within crime/thriller the four languages look alike, within literary fiction it/ru still differ.
+- **Options:**
+  - (a) Matched first, then targeted — recommended. Matched: about 150 books stratified by genre and publication decade, 2 reviews per language per book, so ~300 reviews per language like the pilots, labelled with the same setup. For it/ru/en this can be drawn from the pages already scraped: 2,590 books have ≥ 5 reviews in both it and ru, and the scrape has English pages for the same books (on the T7 drive). Targeted: I write selection criteria per language (publication year, genre quotas, minimum reviews in the language) and a sampling script over whatever book lists you scrape.
+  - (b) Matched only.
+  - (c) Targeted only.
+- **Question (Edit, under Response):** can the Dutch corpus be linked to Goodreads books? The Dutch work ids are anonymised (`impfic-work-N`). The T7 notebook `impfic-multilingual-reviews/scripts/Link-crawled-and-impfic-reviews.ipynb` suggests you made such a link before; if so, where is it? Without it, Dutch can only be matched by genre and publication year, not by book.
+- **Default if unanswered:** nothing is drawn; the pilots stay as they are.
+- **Blocks:** the cross-language comparison, and the next Italian/Russian/English annotation rounds.
+- **Response:**
