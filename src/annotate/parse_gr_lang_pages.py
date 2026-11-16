@@ -2,11 +2,13 @@
 
 usage: python3.11 src/annotate/parse_gr_lang_pages.py LANG [LANG ...]      e.g. it ru
 Source: impfic-multilingual-reviews/data/Book_language_pages/<lang>/*.html.gz on the T7 drive (read-only), one page
-per book (Goodreads' language version of the book page, which lists up to 30 reviews in that language).
+per book (Goodreads' language version of the book page, which lists up to 30 reviews in that language, sorted by
+likes: a page with 30 reviews shows the 30 most-liked ones, not all).
 Adapted from impfic-multilingual-reviews/scripts/parse_html.py (extract_review, extract_review_rating), with two
 changes: <br> becomes a line break (the original joined all strings with spaces, which loses the paragraphs that
 the sentence splitter uses), and reviewer names are not kept or hashed (the review URL is the source key).
-output: data/other_languages/<lang>/gr_reviews.tsv.gz (book_id, page_file, review_url, rating, review_date, text;
+output: data/other_languages/<lang>/gr_reviews.tsv.gz (book_id, page_file, review_url, rating, review_date, likes, comments,
+        position (0-based rank on the page), n_on_page, text;
         backslash, newline and tab escaped as in texts.tsv.gz), one row per review, deduplicated by review URL.
 Refuses to overwrite.
 """
@@ -50,8 +52,13 @@ def parse_page(path):
             date = date_parse(date.text).date().isoformat() if date else None
         except (ValueError, OverflowError):
             date = None
+        stats = card.find(class_=re.compile('SocialFooter__statsContainer'))
+        st = stats.get_text(' ', strip=True) if stats else ''
+        likes = re.search(r'([\d,.]+)\s*likes?', st)
+        comments = re.search(r'([\d,.]+)\s*comments?', st)
         yield {'review_url': link.attrs.get('href') if link else None, 'rating': rating(content),
-               'review_date': date, 'text': review_text(span)}
+               'review_date': date, 'likes': int(re.sub(r'\D', '', likes.group(1))) if likes else 0,
+               'comments': int(re.sub(r'\D', '', comments.group(1))) if comments else 0, 'text': review_text(span)}
 
 
 def esc(t):
@@ -69,7 +76,7 @@ for lang in sys.argv[1:]:
         book_id = int(re.match(r'(\d+)', f).group(1))
         revs = list(parse_page(f'{PAGES}/{lang}/{f}'))
         empty += not revs
-        rows += [dict(book_id=book_id, page_file=f, **r) for r in revs]
+        rows += [dict(book_id=book_id, page_file=f, position=k, n_on_page=len(revs), **r) for k, r in enumerate(revs)]
         if (i + 1) % 2000 == 0:
             print(f'{lang}: {i + 1}/{len(files)} pages, {len(rows)} reviews', flush=True)
     d = pd.DataFrame(rows)

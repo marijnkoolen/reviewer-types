@@ -422,3 +422,39 @@ Goodreads scrape:
 - **Response:**
 - **Answer (in chat, 2026-11-16):** "UA 29 yes, let's continue." (option a)
 - **Outcome (2026-11-16):** Italian runs resumed (opus_a 006–011, then opus_b, tie-breaker), Russian after; progress in the Phase 4 Italian and Russian section of `docs/GROUND_TRUTH_PLAN.md`.
+
+### UA-031 Same books across languages, or targeted samples per language? (2026-11-16, from the label-share differences)
+- **Action:** **Decide** the direction, and answer one factual question. The two directions answer different questions:
+  - Same books in all languages (matched): separates "what is reviewed" from "how people review in this language". Needed for any cross-language comparison.
+  - Targeted samples per language (recent books, more genre fiction): gives each language a pool like what is actually reviewed in it now. This is what a classifier for that language should be trained and checked on.
+  - The genre check (plan, Phase 4 Italian and Russian) shows both matter: within crime/thriller the four languages look alike, within literary fiction it/ru still differ.
+- **Options:**
+  - (a) Matched first, then targeted — recommended. Matched: about 150 books stratified by genre and publication decade, 2 reviews per language per book, so ~300 reviews per language like the pilots, labelled with the same setup. For it/ru/en this can be drawn from the pages already scraped: 2,590 books have ≥ 5 reviews in both it and ru, and the scrape has English pages for the same books (on the T7 drive). Targeted: I write selection criteria per language (publication year, genre quotas, minimum reviews in the language) and a sampling script over whatever book lists you scrape.
+  - (b) Matched only.
+  - (c) Targeted only.
+- **Question (Edit, under Response):** can the Dutch corpus be linked to Goodreads books? The Dutch work ids are anonymised (`impfic-work-N`). The T7 notebook `impfic-multilingual-reviews/scripts/Link-crawled-and-impfic-reviews.ipynb` suggests you made such a link before; if so, where is it? Without it, Dutch can only be matched by genre and publication year, not by book.
+- **Default if unanswered:** nothing is drawn; the pilots stay as they are.
+- **Blocks:** the cross-language comparison, and the next Italian/Russian/English annotation rounds.
+- **Response:** a. There is a mapping file of book identifiers: `/Users/marijnkoolen/Code/impact-of-fiction/data/book_metadata/work_isbn_title_genre.tsv.gz`.
+- **Outcome (2026-11-16):** Dutch works linked to Goodreads by ISBN (`src/annotate/link_dutch_goodreads.py`, 25,366 works); matched sample of 152 books drawn (`data/matched/`). Before annotating, two follow-up choices on the Dutch source and the likes ranking: UA-032.
+
+### UA-032 Matched-books sample: Dutch source and the likes ranking (2026-11-16, from UA-031 a; revised the same day)
+- **Action:** **Decide** two things before the matched sample is annotated. Nothing has run yet.
+  - Facts:
+    - The current draw (`data/matched/`) takes Dutch reviews from the Dutch corpus, not from the 14,487 Dutch Goodreads pages.
+    - Goodreads sorts each language page by likes. Of the 152 matched books, the page shows only the 30 most-liked reviews for every English page, 107 Italian, 78 of 151 Dutch and 39 Russian.
+    - On such pages, length falls with rank: Italian median 170 words at positions 1–5, 80 at 21–30, and 76 on pages that are not cut off. Russian is similar, weaker. Rank barely depends on review age (Spearman 0.03–0.07).
+    - The Italian and Russian pilots were drawn at random from these pages, so they lean towards liked, longer reviews; their labels are fine, but their label shares are not shares of all reviews.
+  - (1) Dutch source:
+    - (a) Goodreads Dutch pages for the cross-language comparison (same platform, ranking and years as en/it/ru), plus the corpus reviews as a fifth arm (Dutch Goodreads vs Dutch corpus = platform effect), ~3,600 more sentences — recommended;
+    - (b) Goodreads Dutch only;
+    - (c) corpus only (current draw).
+  - (2) Likes ranking:
+    - (a) Per book and language, take one review from the top 5 positions and one from the bottom of the page (positions 21–30, or the last third of a shorter page). Every language then gets the same mix of high- and low-ranked reviews. Likes and position are recorded as covariates — recommended;
+    - (b) random within the page (current draw);
+    - (c) only reviews with 0–1 likes (closest to an ordinary review; drops books whose pages hold only liked reviews).
+  - For the later targeted samples, the clean fix is in the scraping: Goodreads' review listing sorted by newest instead of the book page. That is your call; I would only use what you scrape.
+- **Default if unanswered:** nothing runs; the current draw stays unannotated.
+- **Blocks:** the book-controlled comparison across languages.
+- **Response:** 1 a, 2 a.
+- **Outcome (2026-11-16):** redrawn with Goodreads Dutch, English, Italian and Russian (one top-5 and one bottom-third review per book and language) plus the Dutch corpus as a fifth arm; 152 books, 304 reviews per arm, 16,863 sentences. Codebook for Dutch Goodreads: `docs/codebook_v2.4_nl_gr.md`. English bottom-band reviews are still liked (median 27.5): every English page is cut off at 30. Running the annotation: UA-033.

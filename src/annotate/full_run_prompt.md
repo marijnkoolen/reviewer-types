@@ -62,3 +62,13 @@ Same text as the English pilot, with "English" replaced by "Italian" (or "Russia
 input `data/other_languages/{it,ru}/chunks/chunk_{NNN}.json`, output `data/other_languages/{it,ru}/{RUN}/chunk_{NNN}.json`,
 and "Follow the v2.x clarifications, the platform conventions, the Italian (Russian) reviews section and the general rules
 closely". Check, tie-break and aggregate with `RUN_BASE=data/other_languages/{it,ru}`.
+
+---
+
+## Matched-books sample (2026-11-16, UA-031 a, UA-032 1a/2a)
+
+Same text as the Phase 4 pilots, per arm: input `data/matched/<arm>/chunks/chunk_{NNN}.json`, output
+`data/matched/<arm>/{RUN}/chunk_{NNN}.json`, `RUN_BASE=data/matched/<arm>` for check, tie-break and aggregation.
+Arms and codebooks: `nl` (Dutch Goodreads) "Dutch book-review sentences", `docs/codebook_v2.4_nl_gr.md`, follow "the
+v2.x clarifications, the platform conventions and the general rules"; `nlc` (Dutch corpus) exactly the Phase 3 text
+with `docs/codebook_v2.4.md`; `en`, `it`, `ru` as in their pilots (`codebook_v2.4_en/it/ru.md`).

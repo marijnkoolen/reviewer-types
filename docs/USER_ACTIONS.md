@@ -21,23 +21,9 @@ Answered items move to `docs/USER_ACTIONS_resolved.md`.
 - **Blocks:** the Italian and Russian agent-vs-human comparison, and scaling them to the rest of their pools (1,500 reviews each).
 - **Response:**
 
-### UA-031 Same books across languages, or targeted samples per language? (2026-11-16, from the label-share differences)
-- **Action:** **Decide** the direction, and answer one factual question. The two directions answer different questions:
-  - Same books in all languages (matched): separates "what is reviewed" from "how people review in this language". Needed for any cross-language comparison.
-  - Targeted samples per language (recent books, more genre fiction): gives each language a pool like what is actually reviewed in it now. This is what a classifier for that language should be trained and checked on.
-  - The genre check (plan, Phase 4 Italian and Russian) shows both matter: within crime/thriller the four languages look alike, within literary fiction it/ru still differ.
-- **Options:**
-  - (a) Matched first, then targeted — recommended. Matched: about 150 books stratified by genre and publication decade, 2 reviews per language per book, so ~300 reviews per language like the pilots, labelled with the same setup. For it/ru/en this can be drawn from the pages already scraped: 2,590 books have ≥ 5 reviews in both it and ru, and the scrape has English pages for the same books (on the T7 drive). Targeted: I write selection criteria per language (publication year, genre quotas, minimum reviews in the language) and a sampling script over whatever book lists you scrape.
-  - (b) Matched only.
-  - (c) Targeted only.
-- **Question (Edit, under Response):** can the Dutch corpus be linked to Goodreads books? The Dutch work ids are anonymised (`impfic-work-N`). The T7 notebook `impfic-multilingual-reviews/scripts/Link-crawled-and-impfic-reviews.ipynb` suggests you made such a link before; if so, where is it? Without it, Dutch can only be matched by genre and publication year, not by book.
-- **Default if unanswered:** nothing is drawn; the pilots stay as they are.
-- **Blocks:** the cross-language comparison, and the next Italian/Russian/English annotation rounds.
-- **Response:** a. There is a mapping file of book identifiers: `/Users/marijnkoolen/Code/impact-of-fiction/data/book_metadata/work_isbn_title_genre.tsv.gz`.
-
-### UA-032 Run the matched-books annotation? (2026-11-16, from UA-031 a)
-- **Action:** **Decide**. The matched sample is ready (`data/matched/`): 152 books, the same books in Dutch, English, Italian and Russian, 304 reviews per language, 13,821 sentences in all (English 5,144 — English reviews are long, median 12 sentences — Dutch 3,653, Russian 2,546, Italian 2,478). Same setup as the pilots: opus_a, opus_b, opus_c tie-breaker, per-language codebooks (Dutch `codebook_v2.4.md`). Estimated cost: about 11–12% of a week (scaled from Phase 3: 16k sentences ≈ 13–14%), ~40% more than four pilot-sized sets.
-- **Options:** (a) run all four languages — recommended; it gives the book-controlled comparison and ~14k more training sentences; (b) run without English, or with only the English reviews up to 400 words (~60% of the English sentences), to save ~3–5% of a week; (c) wait until after the weekly reset (2026-11-18).
+### UA-033 Run the matched-books annotation (2026-11-16, from UA-032)
+- **Action:** **Decide**. The redrawn matched sample is chunked (`data/matched/<arm>/chunks/`): 16,863 sentences in five arms (en 5,651, nlc 3,528, it 3,034, ru 2,767, nl 1,883). Same setup as the pilots (opus_a, opus_b, opus_c tie-breaker). Estimated cost: about 13–14% of a week (the size of Phase 3).
+- **Options:** (a) run all five arms now — recommended; (b) run now without English (saves ~4–5% of a week; English is the arm this scrape samples worst, see UA-032) and add English after your four-page scrape; (c) wait for the weekly reset of 2026-11-18.
 - **Default if unanswered:** nothing runs.
-- **Blocks:** the book-controlled comparison across languages.
+- **Blocks:** the book-controlled comparison across languages and platforms.
 - **Response:**
