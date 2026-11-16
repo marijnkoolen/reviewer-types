@@ -40,6 +40,7 @@ VM2:
     CUDA_VISIBLE_DEVICES=1 python src/classifier/gt_v2_transformer.py --model FacebookAI/xlm-roberta-large --name xlmr_large --lr 1e-5 2>&1 | tee xlmr_large.log
 
 - The model names are the versions I know; a newer version of the same family can be passed with `--model`.
+- Gated models (2026-11-16: `utter-project/EuroLLM-9B` answers 401 "gated repo"): accept the terms on the model's Hugging Face page, create a read token (huggingface.co → Settings → Access Tokens), then on the VM run `hf auth login` (older versions: `huggingface-cli login`) and paste the token. The Qwen models are not gated.
 - 14B is the largest that should fit in 22 GB at 4 bits; if it runs out of memory, lower `--max_len` to 1024.
 - Out of memory on any run: add `--max_len 1024` (more reviews get split, but every sentence still sees its neighbours).
 - `xlmr_large` is the baseline from UA-025 (b): the RobBERT setup with a multilingual large encoder.
