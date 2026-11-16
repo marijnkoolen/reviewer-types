@@ -236,3 +236,7 @@ results/gt_v2_classifier/*/*
 !results/gt_v2_classifier/*/train_log.json
 docs/USER_ACTIONS_resolved.before_recovery.md
 docs/*.pdf
+# matched-books summary tables (aggregate shares only, no review text)
+!results/matched/
+results/matched/*
+!results/matched/*.tsv
